@@ -1,0 +1,5 @@
+FSharp.Core
+FSharp.Data
+Jaeger
+Jaeger.Senders.Grpc
+Lmc.ErrorHandling
