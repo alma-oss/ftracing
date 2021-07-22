@@ -6,7 +6,7 @@
     <OutputType>Library</OutputType>
     <PackageId>Lmc.Tracing</PackageId>
     <Version>1.0.0</Version>
-    <RepositoryUrl>https://bitbucket.lmc.cz/projects/ARCHI/repos/fcontract-aggregate/browse</RepositoryUrl>
+    <RepositoryUrl>https://bitbucket.lmc.cz/projects/ARCHI/repos/ftracing/browse</RepositoryUrl>
   </PropertyGroup>
 
   <ItemGroup>
