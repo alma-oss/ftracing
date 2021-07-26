@@ -80,7 +80,7 @@ module Trace =
     let id = context >> Option.map (fun context -> context.TraceId)
 
     [<RequireQualifiedAccess>]
-    module private Build =
+    module internal Build =
         type Reference =
             | AsChildOf of Trace
             | AsFollowsFrom of Trace
@@ -88,7 +88,10 @@ module Trace =
         let span name =
             Tracer.tracer().BuildSpan(name)
 
-        let reference reference name =
+        let spanAt startTime name =
+            (span name).WithStartTimestamp(startTime)
+
+        let private createReference (span: string -> ISpanBuilder) reference name =
             match reference with
             | AsChildOf Inactive
             | AsFollowsFrom Inactive -> None
@@ -101,9 +104,23 @@ module Trace =
             | AsFollowsFrom (Span parent) -> (span name).AddReference(References.FollowsFrom, parent.Context) |> Some
             | AsFollowsFrom (Context parent) -> (span name).AddReference(References.FollowsFrom, parent) |> Some
 
+        let reference reference name =
+            createReference span reference name
+
+        let referenceAt reference startTime name =
+            createReference (spanAt startTime) reference name
+
     //
     // Public Span modules
     //
+
+    [<RequireQualifiedAccess>]
+    module Span =
+        let start name =
+            (Build.span name).Start() |> Span
+
+        let startAt startTime name =
+            (Build.spanAt startTime name).Start() |> Span
 
     [<RequireQualifiedAccess>]
     module Active =
@@ -118,56 +135,76 @@ module Trace =
         let finish = current >> finish
 
     [<RequireQualifiedAccess>]
-    module ChildOf =
-        let start parentTrace name =
-            match name |> Build.reference (Build.AsChildOf parentTrace) with
+    module internal Reference =
+        let start (reference: Trace -> Build.Reference) parentTrace name =
+            match name |> Build.reference (reference parentTrace) with
             | Some trace -> trace.Start() |> Span
             | _ -> Inactive
 
-        let startFromActive name =
-            name |> start (Active.current())
+        let startAt (reference: Trace -> Build.Reference) startTime parentTrace name =
+            match name |> Build.referenceAt (reference parentTrace) startTime with
+            | Some trace -> trace.Start() |> Span
+            | _ -> Inactive
 
-        let startActive parentTrace name =
-            match name |> Build.reference (Build.AsChildOf parentTrace) with
+        let startFromActive reference name =
+            name |> start reference (Active.current())
+
+        let startActive reference parentTrace name =
+            match name |> Build.reference (reference parentTrace) with
             | Some trace -> trace.StartActive() |> Scope
             | _ -> Inactive
 
-        let startActiveFromActive name =
-            name |> startActive (Active.current())
+        let startActiveAt reference startTime parentTrace name =
+            match name |> Build.referenceAt (reference parentTrace) startTime with
+            | Some trace -> trace.StartActive() |> Scope
+            | _ -> Inactive
 
-        let continueOrStartActive extract name =
+        let startActiveFromActive reference name =
+            name |> startActive reference (Active.current())
+
+        let continueOrStartActive reference extract name =
             name
             |> match extract() with
                 | Inactive -> Active.start
-                | trace -> startActive trace
+                | trace -> startActive reference trace
 
-        let continueOrStartActiveFromActive = continueOrStartActive Active.current
+        let continueOrStartActiveFromActive reference = continueOrStartActive reference Active.current
+
+        let continueOrStart reference extract name =
+            name
+            |> match extract() with
+                | Inactive -> Span.start
+                | trace -> start reference trace
+
+        let continueOrStartAt reference extract startTime name =
+            name
+            |> match extract() with
+                | Inactive -> Span.startAt startTime
+                | trace -> startAt reference startTime trace
+
+    [<RequireQualifiedAccess>]
+    module ChildOf =
+        let start = Reference.start Build.AsChildOf
+        let startFromActive = Reference.startFromActive Build.AsChildOf
+        let startActive = Reference.startActive Build.AsChildOf
+        let startActiveAt = Reference.startActiveAt Build.AsChildOf
+        let startActiveFromActive = Reference.startActiveFromActive Build.AsChildOf
+        let continueOrStartActive = Reference.continueOrStartActive Build.AsChildOf
+        let continueOrStart = Reference.continueOrStart Build.AsChildOf
+        let continueOrStartAt = Reference.continueOrStartAt Build.AsChildOf
+        let continueOrStartActiveFromActive = Reference.continueOrStartActiveFromActive Build.AsChildOf
 
     [<RequireQualifiedAccess>]
     module FollowFrom =
-        let start parentTrace name =
-            match name |> Build.reference (Build.AsFollowsFrom parentTrace) with
-            | Some trace -> trace.Start() |> Span
-            | _ -> Inactive
-
-        let startFromActive name =
-            name |> start (Active.current())
-
-        let startActive parentTrace name =
-            match name |> Build.reference (Build.AsFollowsFrom parentTrace) with
-            | Some trace -> trace.StartActive() |> Scope
-            | _ -> Inactive
-
-        let startActiveFromActive name =
-            name |> startActive (Active.current())
-
-        let continueOrStartActive extract name =
-            name
-            |> match extract() with
-                | Inactive -> Active.start
-                | trace -> startActive trace
-
-        let continueOrStartActiveFromActive = continueOrStartActive Active.current
+        let start = Reference.start Build.AsFollowsFrom
+        let startFromActive = Reference.startFromActive Build.AsFollowsFrom
+        let startActive = Reference.startActive Build.AsFollowsFrom
+        let startActiveAt = Reference.startActiveAt Build.AsFollowsFrom
+        let startActiveFromActive = Reference.startActiveFromActive Build.AsFollowsFrom
+        let continueOrStartActive = Reference.continueOrStartActive Build.AsFollowsFrom
+        let continueOrStart = Reference.continueOrStart Build.AsFollowsFrom
+        let continueOrStartAt = Reference.continueOrStartAt Build.AsFollowsFrom
+        let continueOrStartActiveFromActive = Reference.continueOrStartActiveFromActive Build.AsFollowsFrom
 
     //
     // Update spans
