@@ -97,6 +97,58 @@ Main Action
     - Do some more work
 ```
 
+### Trace received HTTP request with Extension
+```fs
+open Lmc.Tracing
+open Lmc.Tracing.Extension
+
+let entryPoint (ctx: Microsoft.AspNetCore.Http.HttpContext) args =
+    use receiveRequestTrace =       // with `use` trace will be finished automatically in the end of the method
+        "Receive request"
+        |> Trace.ChildOf.continueOrStartActive (fun () -> ctx |> Http.extractFromContext)     // this will either extract the trace from request headers or start an active span
+        |> Trace.addTags [ "component", "Example" ]
+
+    // debug trace id
+    receiveRequestTrace |> Trace.id |> printfn "[Debug] Trace id: %A"
+
+    let validationTrace = "Validation" |> Trace.ChildOf.start receiveRequestTrace      // `let` means, the trace must be finished by Trace.finish
+    let validated = args |> validation
+    validationTrace |> Trace.finish
+
+    use _ = "Some work" |> Trace.ChildOf.start receiveRequestTrace     // `use` will finish someWorkTrace automatically in the end of the method
+    validated |> someWork
+```
+
+### Trace sent HTTP request
+```fs
+open FSharp.Data
+open FSharp.Data.HttpRequestHeaders
+open Lmc.ErrorHandling
+
+open Lmc.Tracing
+open Lmc.Tracing.Extension
+
+let httpRequest url = asyncResult {
+    let! rawResponse =
+        Http.AsyncRequestString (
+            url,
+            httpMethod = "GET",
+            headers = (
+                [
+                    Accept HttpContentTypes.Json
+                    // other headers ...
+                ]
+                |> Http.injectActive      // this will trace with an active span, if you want to pass your own, use `inject` instead
+            )
+        )
+        |> AsyncResult.ofAsyncCatch ApiError
+
+    let response = Schema.Parse(rawResponse)
+
+    return response // ...
+}
+```
+
 ## Release
 1. Increment version in `Tracing.fsproj`
 2. Update `CHANGELOG.md`
