@@ -2,6 +2,8 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+
+## 1.4.2 - 2021-08-02
 - Fix `format` argument of `TracedError.ofError` to receive an `'Error` not a `TracedError` instance
 
 ## 1.4.1 - 2021-08-02
