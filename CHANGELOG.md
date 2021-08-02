@@ -2,6 +2,8 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+
+## 1.4.1 - 2021-08-02
 - Move `TracedError` type and module to the namespace `Lmc.Tracing` directly
 
 ## 1.4.0 - 2021-08-02
