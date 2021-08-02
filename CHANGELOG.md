@@ -2,6 +2,9 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+- Add `TracedError` type and module
+- Add `Trace.addError` function
+- Fix extract trace from http not to add tags, since it should be added on the referencing trace
 
 ## 1.3.0 - 2021-07-27
 - Extract trace from http context with specific tags for HTTP
