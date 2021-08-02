@@ -50,6 +50,50 @@ module Tracer =
 
         fun () -> config.GetTracer()
 
+type TracedError<'Error> = {
+    Error: 'Error
+    Message: string
+    Stack: string option
+    Kind: string option
+}
+
+[<RequireQualifiedAccess>]
+module TracedError =
+    open System.Collections.Generic
+
+    let ofExn (e: exn) =
+        {
+            Error = e
+            Message = e.Message
+            Stack = Some e.StackTrace
+            Kind = Some (e.GetType().ToString())
+        }
+
+    let ofError format error =
+        {
+            Error = error
+            Message = error |> format
+            Stack = None
+            Kind = try error.Error.GetType().ToString() |> Some with _ -> None
+        }
+
+    let internal toErrorDictionary error =
+        [
+            "event", "error" :> obj
+            "error.object", error.Error :> obj
+            "message", error.Message :> obj
+
+            match error.Stack with
+            | Some stack -> "stack", stack :> obj
+            | _ -> ()
+
+            match error.Kind with
+            | Some kind -> "error.kind", kind :> obj
+            | _ -> ()
+        ]
+        |> List.map (fun (k, v) -> KeyValuePair(k, v))
+        |> Dictionary
+
 type Trace =
     | Scope of IScope
     | Span of ISpan
@@ -231,50 +275,6 @@ module Trace =
             | Inactive -> ()
         )
         trace
-
-    type TracedError<'Error> = {
-        Error: 'Error
-        Message: string
-        Stack: string option
-        Kind: string option
-    }
-
-    [<RequireQualifiedAccess>]
-    module TracedError =
-        open System.Collections.Generic
-
-        let ofExn (e: exn) =
-            {
-                Error = e
-                Message = e.Message
-                Stack = Some e.StackTrace
-                Kind = Some (e.GetType().ToString())
-            }
-
-        let ofError format error =
-            {
-                Error = error
-                Message = error |> format
-                Stack = None
-                Kind = try error.Error.GetType().ToString() |> Some with _ -> None
-            }
-
-        let internal toErrorDictionary error =
-            [
-                "event", "error" :> obj
-                "error.object", error.Error :> obj
-                "message", error.Message :> obj
-
-                match error.Stack with
-                | Some stack -> "stack", stack :> obj
-                | _ -> ()
-
-                match error.Kind with
-                | Some kind -> "error.kind", kind :> obj
-                | _ -> ()
-            ]
-            |> List.map (fun (k, v) -> KeyValuePair(k, v))
-            |> Dictionary
 
     let addError error trace =
         match trace with
