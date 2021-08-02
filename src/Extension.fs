@@ -27,7 +27,6 @@ module private Headers =
 
 [<RequireQualifiedAccess>]
 module Http =
-    open System
     open Microsoft.AspNetCore.Http
 
     let private headersFromContext (httpContext: HttpContext): HeaderSeq =
@@ -37,25 +36,14 @@ module Http =
     let extractFromHeaders headers =
         let httpHeadersCarrier = TextMapExtractAdapter(headers |> headersToDictionary) :> ITextMap
 
-        let trace =
-            match Tracer.tracer().Extract(BuiltinFormats.HttpHeaders, httpHeadersCarrier) with
-            | null -> Inactive
-            | context -> Context context
-
-        trace
-        |> Trace.addTags [
-            "component:", (sprintf "ftracing (%s)" AssemblyVersionInformation.AssemblyVersion)
-        ]
+        match Tracer.tracer().Extract(BuiltinFormats.HttpHeaders, httpHeadersCarrier) with
+        | null -> Inactive
+        | context -> Context context
 
     let extractFromContext (httpContext: HttpContext) =
         httpContext
         |> headersFromContext
         |> extractFromHeaders
-        |> Trace.addTags [
-            "http.method", httpContext.Request.Method
-            "http.status_code", string httpContext.Response.StatusCode
-            "http.url", sprintf "%s://%s%s%s" httpContext.Request.Scheme httpContext.Request.Host.Value httpContext.Request.Path.Value httpContext.Request.QueryString.Value
-        ]
 
     let inject trace headers =
         match trace |> Trace.context with
