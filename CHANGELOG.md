@@ -2,6 +2,7 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+- Fix `format` argument of `TracedError.ofError` to receive an `'Error` not a `TracedError` instance
 
 ## 1.4.1 - 2021-08-02
 - Move `TracedError` type and module to the namespace `Lmc.Tracing` directly

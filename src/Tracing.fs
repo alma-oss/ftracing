@@ -69,12 +69,12 @@ module TracedError =
             Kind = Some (e.GetType().ToString())
         }
 
-    let ofError format error =
+    let ofError format error: TracedError<'Error> =
         {
             Error = error
             Message = error |> format
             Stack = None
-            Kind = try error.Error.GetType().ToString() |> Some with _ -> None
+            Kind = try error.GetType().ToString() |> Some with _ -> None
         }
 
     let internal toErrorDictionary error =
