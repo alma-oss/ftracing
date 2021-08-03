@@ -2,6 +2,8 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+
+## 1.5.0 - 2021-08-03
 - Add error tag automatically in `addError` function
 
 ## 1.4.2 - 2021-08-02
