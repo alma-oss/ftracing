@@ -283,3 +283,4 @@ module Trace =
         | Context _ -> ()
         | Inactive -> ()
         trace
+        |> addTags [ "error", "true" ]
