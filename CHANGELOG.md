@@ -2,6 +2,8 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+
+## 2.0.0 - 2021-08-03
 - Add `TraceContext` type and module
 - Add `ActiveTrace` type and module
 - [**BC**] Use `TraceContext` and `ActiveTrace` in `Trace` type as a cases subtypes
