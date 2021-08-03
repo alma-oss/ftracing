@@ -2,6 +2,10 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+- Add `TraceContext` type and module
+- Add `ActiveTrace` type and module
+- [**BC**] Use `TraceContext` and `ActiveTrace` in `Trace` type as a cases subtypes
+- [**BC**] Extract trace as a `TraceContext` in trace extension(s)
 
 ## 1.5.0 - 2021-08-03
 - Add error tag automatically in `addError` function
