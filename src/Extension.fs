@@ -37,8 +37,8 @@ module Http =
         let httpHeadersCarrier = TextMapExtractAdapter(headers |> headersToDictionary) :> ITextMap
 
         match Tracer.tracer().Extract(BuiltinFormats.HttpHeaders, httpHeadersCarrier) with
-        | null -> Inactive
-        | context -> Context context
+        | null -> None
+        | context -> Some (TraceContext context)
 
     let extractFromContext (httpContext: HttpContext) =
         httpContext
@@ -47,7 +47,7 @@ module Http =
 
     let inject trace headers =
         match trace |> Trace.context with
-        | Some context ->
+        | Some (TraceContext context) ->
             let headersDict = headers |> headersToDictionary
             let httpHeadersCarrier = TextMapInjectAdapter(headersDict) :> ITextMap
 

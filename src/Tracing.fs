@@ -94,18 +94,44 @@ module TracedError =
         |> List.map (fun (k, v) -> KeyValuePair(k, v))
         |> Dictionary
 
-type Trace =
+type TraceContext = TraceContext of ISpanContext
+
+[<RequireQualifiedAccess>]
+module TraceContext =
+    let traceId (TraceContext context) = context.TraceId
+
+type ActiveTrace =
     | Scope of IScope
     | Span of ISpan
-    | Context of ISpanContext
-    | Inactive
 
     member this.Finish() =
         match this with
         | Scope scope -> scope.Dispose()
         | Span span -> span.Finish()
-        | Context _ -> ()
-        | Inactive -> ()
+
+    interface IDisposable with
+        member this.Dispose() =
+            this.Finish()
+
+[<RequireQualifiedAccess>]
+module ActiveTrace =
+    let finish (trace: ActiveTrace) = trace.Finish()
+
+    let context = function
+        | Scope scope -> TraceContext scope.Span.Context
+        | Span span -> TraceContext span.Context
+
+    let id = context >> TraceContext.traceId
+
+type Trace =
+    | Active of ActiveTrace
+    | Context of TraceContext
+    | Inactive
+
+    member this.Finish() =
+        match this with
+        | Active active -> active.Finish()
+        | _ -> ()
 
     interface IDisposable with
         member this.Dispose() =
@@ -113,15 +139,17 @@ type Trace =
 
 [<RequireQualifiedAccess>]
 module Trace =
-    let finish (item: Trace) = item.Finish()
+    let ofContextOption = function
+        | Some context -> Context context
+        | _ -> Inactive
+
+    let finish (trace: Trace) = trace.Finish()
 
     let context = function
-        | Scope scope -> Some scope.Span.Context
-        | Span span -> Some span.Context
-        | Context context -> Some context
-        | Inactive -> None
+        | Active active -> Some (active |> ActiveTrace.context)
+        | _ -> None
 
-    let id = context >> Option.map (fun context -> context.TraceId)
+    let id = context >> Option.map TraceContext.traceId
 
     [<RequireQualifiedAccess>]
     module internal Build =
@@ -140,13 +168,13 @@ module Trace =
             | AsChildOf Inactive
             | AsFollowsFrom Inactive -> None
 
-            | AsChildOf (Scope parent) -> (span name).AsChildOf(parent.Span.Context) |> Some
-            | AsChildOf (Span parent) -> (span name).AsChildOf(parent.Context) |> Some
-            | AsChildOf (Context parent) -> (span name).AsChildOf(parent) |> Some
+            | AsChildOf (Active (Scope parent)) -> (span name).AsChildOf(parent.Span.Context) |> Some
+            | AsChildOf (Active (Span parent)) -> (span name).AsChildOf(parent.Context) |> Some
+            | AsChildOf (Context (TraceContext parent)) -> (span name).AsChildOf(parent) |> Some
 
-            | AsFollowsFrom (Scope parent) -> (span name).AddReference(References.FollowsFrom, parent.Span.Context) |> Some
-            | AsFollowsFrom (Span parent) -> (span name).AddReference(References.FollowsFrom, parent.Context) |> Some
-            | AsFollowsFrom (Context parent) -> (span name).AddReference(References.FollowsFrom, parent) |> Some
+            | AsFollowsFrom (Active (Scope parent)) -> (span name).AddReference(References.FollowsFrom, parent.Span.Context) |> Some
+            | AsFollowsFrom (Active (Span parent)) -> (span name).AddReference(References.FollowsFrom, parent.Context) |> Some
+            | AsFollowsFrom (Context (TraceContext parent)) -> (span name).AddReference(References.FollowsFrom, parent) |> Some
 
         let reference reference name =
             createReference span reference name
@@ -161,20 +189,20 @@ module Trace =
     [<RequireQualifiedAccess>]
     module Span =
         let start name =
-            (Build.span name).Start() |> Span
+            (Build.span name).Start() |> Span |> Active
 
         let startAt startTime name =
-            (Build.spanAt startTime name).Start() |> Span
+            (Build.spanAt startTime name).Start() |> Span |> Active
 
     [<RequireQualifiedAccess>]
     module Active =
         let current () =
             match Tracer.tracer().ActiveSpan with
             | null -> Inactive
-            | span -> Span span
+            | span -> Active (Span span)
 
         let start name =
-            (Build.span name).StartActive() |> Scope
+            (Build.span name).StartActive() |> Scope |> Active
 
         let finish = current >> finish
 
@@ -182,12 +210,12 @@ module Trace =
     module internal Reference =
         let start (reference: Trace -> Build.Reference) parentTrace name =
             match name |> Build.reference (reference parentTrace) with
-            | Some trace -> trace.Start() |> Span
+            | Some trace -> trace.Start() |> Span |> Active
             | _ -> Inactive
 
         let startAt (reference: Trace -> Build.Reference) startTime parentTrace name =
             match name |> Build.referenceAt (reference parentTrace) startTime with
-            | Some trace -> trace.Start() |> Span
+            | Some trace -> trace.Start() |> Span |> Active
             | _ -> Inactive
 
         let startFromActive reference name =
@@ -195,12 +223,12 @@ module Trace =
 
         let startActive reference parentTrace name =
             match name |> Build.reference (reference parentTrace) with
-            | Some trace -> trace.StartActive() |> Scope
+            | Some trace -> trace.StartActive() |> Scope |> Active
             | _ -> Inactive
 
         let startActiveAt reference startTime parentTrace name =
             match name |> Build.referenceAt (reference parentTrace) startTime with
-            | Some trace -> trace.StartActive() |> Scope
+            | Some trace -> trace.StartActive() |> Scope |> Active
             | _ -> Inactive
 
         let startActiveFromActive reference name =
@@ -258,9 +286,9 @@ module Trace =
         baggage
         |> List.iter (fun (key, value) ->
             match trace with
-            | Span span -> span.SetBaggageItem(key, value) |> ignore
-            | Scope scope -> scope.Span.SetBaggageItem(key, value) |> ignore
-            | Context _ -> ()
+            | Active (Span span) -> span.SetBaggageItem(key, value) |> ignore
+            | Active (Scope scope) -> scope.Span.SetBaggageItem(key, value) |> ignore
+            | Context _
             | Inactive -> ()
         )
         trace
@@ -269,18 +297,17 @@ module Trace =
         tags
         |> List.iter (fun (tag, value) ->
             match trace with
-            | Span span -> span.SetTag(tag, value) |> ignore
-            | Scope scope -> scope.Span.SetTag(tag, value) |> ignore
-            | Context _ -> ()
+            | Active (Span span) -> span.SetTag(tag, value) |> ignore
+            | Active (Scope scope) -> scope.Span.SetTag(tag, value) |> ignore
+            | Context _
             | Inactive -> ()
         )
         trace
 
     let addError error trace =
-        match trace with
-        | Span span -> span.Log(error |> TracedError.toErrorDictionary) |> ignore
-        | Scope scope -> scope.Span.Log(error |> TracedError.toErrorDictionary) |> ignore
-        | Context _ -> ()
+        match trace |> addTags [ "error", "true" ] with
+        | Active (Span span) -> span.Log(error |> TracedError.toErrorDictionary) |> ignore
+        | Active (Scope scope) -> scope.Span.Log(error |> TracedError.toErrorDictionary) |> ignore
+        | Context _
         | Inactive -> ()
         trace
-        |> addTags [ "error", "true" ]
