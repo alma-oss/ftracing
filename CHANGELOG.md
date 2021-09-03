@@ -2,6 +2,18 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+- Allow to change logging level by environment variable `JAEGER_LOG_LEVEL`
+- Add function to get all ids out of a Trace
+    - `Trace.id`
+    - `Trace.spanId`
+    - `Trace.traceId`
+    - `ActiveTrace.id`
+    - `ActiveTrace.spanId`
+    - `ActiveTrace.traceId`
+    - `TraceContext.id`
+    - `TraceContext.spanId`
+    - `TraceContext.traceId`
+- Add more debug logs for some actions (like finishing a span, etc)
 
 ## 2.0.0 - 2021-08-03
 - Add `TraceContext` type and module
