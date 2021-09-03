@@ -2,6 +2,8 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+
+## 2.1.0 - 2021-09-03
 - Allow to change logging level by environment variable `JAEGER_LOG_LEVEL`
 - Add function to get all ids out of a Trace
     - `Trace.id`
