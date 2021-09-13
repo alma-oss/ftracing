@@ -246,7 +246,7 @@ module Trace =
 
     [<RequireQualifiedAccess>]
     module Active =
-        let private currentWith (tracer: ITracer) =
+        let private currentIn (tracer: ITracer) =
             let logger = Tracer.loggerFactory().CreateLogger("Trace.Active.current")
             let manager = tracer.ScopeManager
 
@@ -262,12 +262,20 @@ module Trace =
                 Active (Span span)
 
         let current () =
-            currentWith (Tracer.tracer())
+            currentIn (Tracer.tracer())
 
         let start name =
             (Build.span name).StartActive() |> Scope |> Active
 
         let finish = current >> finish
+
+        /// Activate the trace in current scope manager as an Active trace.
+        let activate trace =
+            match trace with
+            | Active (Scope s) -> Tracer.tracer().ScopeManager.Activate(s.Span, true) |> ignore
+            | Active (Span s) -> Tracer.tracer().ScopeManager.Activate(s, true) |> ignore
+            | _ -> ()
+            |> current
 
     [<RequireQualifiedAccess>]
     module internal Reference =

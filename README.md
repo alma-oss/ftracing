@@ -149,6 +149,84 @@ let httpRequest url = asyncResult {
 }
 ```
 
+### Custom Tracing Scope
+Default tracer uses `AsyncLocal` class as a repository for an Active trace - so it is available safely in an async "thread".
+If you need to persist an Active trace between async threads, you need to store it somewhere else.
+There is a custom tracing scope for this purpose.
+
+```fs
+open Lmc.Tracing
+open Lmc.Tracing.CustomTracingScope
+
+let example () =
+    let mainTrace = Trace.Active.start "example"   // in this case, you could store an active trace in variable and pass it to asyncs, without using a custom state, but if your asyncs would be different functions etc, it could be easier to ask Tracer for an active trace "globally" instead. But you still need a unique identifier to retrieve a trace you want!
+
+    mainTrace |> TracingState.storeActiveTrace "main"
+
+    async {
+        // let mainTrace = Trace.Active.current()  // this would normally doesn't return an active trace since there is no active trace in this async
+        let mainTrace = TracingState.loadActiveTrace "main" // but we have stored an active trace in tracing state
+
+        // ... do something, trace children, ...
+    }
+    |> Async.RunSynchronously
+
+    async {
+        let mainTrace = TracingState.loadActiveTrace "main"
+
+        // ... do something, trace children, ...
+
+        // if we want to finish the current "main" trace here now, in the async
+        // we need to clear the trace from our tracing state, otherwise it would stack there forever
+
+        mainTrace
+        |> Trace.finish
+
+        TracingState.clearActiveTrace "main"
+    }
+    |> Async.RunSynchronously
+
+    0
+```
+
+#### Scoped Trace
+There is also a shortcut for the above example, if you use a `ScopedTrace` disposable object.
+
+```fs
+open Lmc.Tracing
+open Lmc.Tracing.CustomTracingScope
+
+let example () =
+    let mainTrace = Trace.Active.start "example"
+
+    let scopedMainTrace = new ScopedTrace("main")
+    scopedMainTrace.Save(mainTrace)
+
+    async {
+        let mainTrace = (new ScopedTrace("main")).Trace
+
+        // ... do something, trace children, ...
+    }
+    |> Async.RunSynchronously
+
+    async {
+        let scopedMainTrace = new ScopedTrace("main")   // we can use `use` here so it would be disposed and cleared automatically
+        let mainTrace = scopedMainTrace.Trace
+
+        // ... do something, trace children, ...
+
+        // if we want to finish the current "main" trace here now, in the async
+
+        scopedMainTrace.Finish()    // it will automatically finish the trace and clear it out of a tracing state
+
+        // or by function
+        // scopedMainTrace |> ScopedTrace.finish
+    }
+    |> Async.RunSynchronously
+
+    0
+```
+
 ## Release
 1. Increment version in `Tracing.fsproj`
 2. Update `CHANGELOG.md`
