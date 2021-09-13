@@ -2,6 +2,9 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+- Allow to activate a trace
+    - `Trace.Active.activate`
+- Add `CustomTracingScope` module and functions
 
 ## 2.1.0 - 2021-09-03
 - Allow to change logging level by environment variable `JAEGER_LOG_LEVEL`
