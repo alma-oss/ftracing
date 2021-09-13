@@ -2,6 +2,8 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+
+## 2.2.0 - 2021-09-13
 - Allow to activate a trace
     - `Trace.Active.activate`
 - Add `CustomTracingScope` module and functions
