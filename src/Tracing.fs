@@ -65,7 +65,7 @@ module Tracer =
             tracerLoggerFactory <- Some factory
             factory
 
-    let private buildTracer scopeManager =
+    let private initTracer scopeManager =
         let loggerFactory = loggerFactory()
         let logger = loggerFactory.CreateLogger("Trace.Tracer")
         // todo<idea> - build config from values which should be the same (propagation=b3, ...)
@@ -80,8 +80,18 @@ module Tracer =
                 .WithScopeManager(scopeManager)
                 .Build()
         logger.LogDebug("Tracer initialized with ScopeManager<{ScopeManager}>.", tracer.ScopeManager.GetType())
+        tracer
 
-        fun () -> tracer
+    let buildTracer scopeManager =
+        let mutable tracerCache: Tracer option = None
+
+        fun () ->
+            match tracerCache with
+            | Some tracer -> tracer
+            | None ->
+                let tracer = initTracer scopeManager
+                tracerCache <- Some tracer
+                tracer
 
     /// Default tracer for a common usage,
     /// where an async "thread" is a scope for an active trace
