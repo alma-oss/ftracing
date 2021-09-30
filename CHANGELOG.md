@@ -2,6 +2,7 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+- Fix `Tracer.tracer` function to be lazy
 
 ## 2.2.0 - 2021-09-13
 - Allow to activate a trace
