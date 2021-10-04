@@ -23,7 +23,7 @@ module LoggerProvider =
                     ]
                     |> ignore
 
-            member __.IsEnabled(logLevel) = logLevel <> LogLevel.None
+            member __.IsEnabled(logLevel) = logLevel <> LogLevel.None && Tracer.Check.isTracerAvailable()
             member __.BeginScope<'TState>(state: 'TState) = null :> IDisposable
 
     type TracingProvider () =
