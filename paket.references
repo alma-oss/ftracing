@@ -3,4 +3,5 @@ FSharp.Data
 Jaeger
 Jaeger.Senders.Grpc
 Lmc.ErrorHandling
+Lmc.Logging
 Lmc.State

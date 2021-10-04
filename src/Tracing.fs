@@ -13,6 +13,7 @@ open OpenTracing.Util
 open Microsoft.Extensions.Logging
 
 open Lmc.ErrorHandling
+open Lmc.Logging
 
 [<RequireQualifiedAccess>]
 module Tracer =
@@ -28,46 +29,33 @@ module Tracer =
             "JAEGER_TAGS"
         ]
 
-    let checkEnvironment getEnvironmentValue =
-        requiredEnvironmentVariables
-        |> List.map getEnvironmentValue
-        |> Validation.ofResults
-        |> Result.map ignore
+    [<RequireQualifiedAccess>]
+    module Check =
+        let environment () =
+            requiredEnvironmentVariables
+            |> List.map getEnvVarValue
+            |> Validation.ofResults
+            |> Result.map ignore
 
-    let mutable private tracerLoggerFactory: ILoggerFactory option = None
+        let isTracerAvailable () =
+            match environment () with
+            | Ok () -> true
+            | Error _ -> false
 
     let internal loggerFactory () =
-        match tracerLoggerFactory with
-        | Some loggerFactory -> loggerFactory
-        | _ ->
-            let environmentLevel =
-                try Environment.GetEnvironmentVariable "JAEGER_LOG_LEVEL" |> string
-                with _ -> "<default>"
+        LoggerFactory.create [
+            LogToFromEnvironment "JAEGER_LOG_TO"
+            UseLevelFromEnvironment "JAEGER_LOG_LEVEL"
 
-            let parsedLevel =
-                match environmentLevel.ToLowerInvariant().Trim() with
-                | "trace" -> LogLevel.Trace
-                | "debug" -> LogLevel.Debug
-                | "information" -> LogLevel.Information
-                | "warning" -> LogLevel.Warning
-                | "error" -> LogLevel.Error
-                | "critical" -> LogLevel.Critical
-                | _ -> LogLevel.None
-
-            let factory =
-                LoggerFactory.Create(fun builder ->
-                    builder
-                        .SetMinimumLevel(parsedLevel)
-                        .AddConsole()
-                    |> ignore
-                )
-
-            tracerLoggerFactory <- Some factory
-            factory
+            LogToSerilog [
+                AddMetaFromEnvironment "JAEGER_LOG_META"
+            ]
+        ]
 
     let private initTracer scopeManager =
-        let loggerFactory = loggerFactory()
+        use loggerFactory = loggerFactory()
         let logger = loggerFactory.CreateLogger("Trace.Tracer")
+
         // todo<idea> - build config from values which should be the same (propagation=b3, ...)
         let config = Configuration.FromEnv(loggerFactory)
 
@@ -80,6 +68,7 @@ module Tracer =
                 .WithScopeManager(scopeManager)
                 .Build()
         logger.LogDebug("Tracer initialized with ScopeManager<{ScopeManager}>.", tracer.ScopeManager.GetType())
+
         tracer
 
     let buildTracer scopeManager =
@@ -155,14 +144,15 @@ type ActiveTrace =
     | Span of ISpan
 
     member this.Finish() =
-        let logger = Tracer.loggerFactory().CreateLogger("Trace.finish")
+        use factory = Tracer.loggerFactory()
+        let logger = factory.CreateLogger("Trace.finish")
 
         match this with
         | Scope scope ->
-            logger.LogDebug("Scope.Dispose(Trace: {traceId}, Span: {spanId})", scope.Span.Context.TraceId, scope.Span.Context.SpanId)
+            logger.LogTrace("Scope.Dispose(Trace: {traceId}, Span: {spanId})", scope.Span.Context.TraceId, scope.Span.Context.SpanId)
             scope.Dispose()
         | Span span ->
-            logger.LogDebug("Span.Finish(Trace: {traceId}, Span: {spanId})", span.Context.TraceId, span.Context.SpanId)
+            logger.LogTrace("Span.Finish(Trace: {traceId}, Span: {spanId})", span.Context.TraceId, span.Context.SpanId)
             span.Finish()
 
     interface IDisposable with
@@ -257,18 +247,19 @@ module Trace =
     [<RequireQualifiedAccess>]
     module Active =
         let private currentIn (tracer: ITracer) =
-            let logger = Tracer.loggerFactory().CreateLogger("Trace.Active.current")
+            use factory = Tracer.loggerFactory()
+            let logger = factory.CreateLogger("Trace.Active.current")
             let manager = tracer.ScopeManager
 
-            logger.LogDebug("Manager<{type}>", manager.GetType())
+            logger.LogTrace("Manager<{type}>", manager.GetType())
 
             match manager.Active with
             | null ->
-                logger.LogDebug("No Active Trace")
+                logger.LogTrace("No Active Trace")
                 Inactive
             | scope ->
                 let span = scope.Span
-                logger.LogDebug("Active Trace: {traceId} with Span: {spanId}", span.Context.TraceId, span.Context.SpanId)
+                logger.LogTrace("Active Trace: {traceId} with Span: {spanId}", span.Context.TraceId, span.Context.SpanId)
                 Active (Span span)
 
         let current () =

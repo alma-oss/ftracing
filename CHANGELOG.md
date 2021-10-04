@@ -2,6 +2,7 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+- Use `Lmc.Logging` to create a logger
 
 ## 2.2.1 - 2021-09-30
 - Fix `Tracer.tracer` function to be lazy

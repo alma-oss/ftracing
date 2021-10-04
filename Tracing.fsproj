@@ -14,6 +14,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="src/Utils.fs" />
+
     <Compile Include="src/Tracing.fs" />
     <Compile Include="src/Extension.fs" />
     <Compile Include="src/CustomTracingScope.fs" />
