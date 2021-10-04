@@ -251,6 +251,27 @@ let example () =
     0
 ```
 
+## Tracing log messages
+> It requires `Lmc.Logging` library
+
+There is a `TracingLogger` which writes log messages into current active trace as baggage.
+
+You can directly pass `TracingProvider` into a logger factory.
+```fs
+
+open Lmc.Tracing
+open Lmc.Tracing.LoggerProvider
+open Lmc.Logging
+
+LoggerFactory.create [
+    UseProvider (TracingProvider.create())
+
+    // ... other options
+]
+```
+
+**Note**: TracingLogger will add log messages only for a current log level. If you need to add all log messages into tracing, there must be set a log level `Tracing`.
+
 ## Release
 1. Increment version in `Tracing.fsproj`
 2. Update `CHANGELOG.md`

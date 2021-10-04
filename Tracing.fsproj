@@ -19,6 +19,8 @@
     <Compile Include="src/Tracing.fs" />
     <Compile Include="src/Extension.fs" />
     <Compile Include="src/CustomTracingScope.fs" />
+
+    <Compile Include="src/Logger.fs" />
   </ItemGroup>
 
   <Import Project=".paket\Paket.Restore.targets" />
