@@ -2,6 +2,8 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+
+## 2.4.0 - 2021-10-04
 - Make `TracingLogger` to be enabled only if Tracer is available
 
 ## 2.3.0 - 2021-10-04
