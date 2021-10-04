@@ -17,6 +17,30 @@ Add following into `paket.references`
 Lmc.Tracing
 ```
 
+## Configuration
+You can use environment values to configure tracing and inner logger
+
+List of required/recommended environment variables
+```
+JAEGER_SERVICE_NAME
+JAEGER_GRPC_TARGET
+JAEGER_TRACEID_128BIT
+JAEGER_SAMPLER_PARAM
+JAEGER_SAMPLER_TYPE
+JAEGER_SENDER_FACTORY
+JAEGER_PROPAGATION
+JAEGER_TAGS
+```
+
+List of optional logging environment variables (see https://bitbucket.lmc.cz/projects/ARCHI/repos/flogging/browse for more information)
+```
+JAEGER_LOG_TO
+JAEGER_LOG_LEVEL
+JAEGER_LOG_META
+```
+
+**TIP**: You can add instance data to `JAEGER_LOG_META` by `JAEGER_LOG_META="domain:DOMAIN; context:CONTEXT; purpose:PURPOSE; version:VERSION"`
+
 ## Usage
 
 ### Start active span for the whole function
@@ -226,6 +250,27 @@ let example () =
 
     0
 ```
+
+## Tracing log messages
+> It requires `Lmc.Logging` library
+
+There is a `TracingLogger` which writes log messages into current active trace as baggage.
+
+You can directly pass `TracingProvider` into a logger factory.
+```fs
+
+open Lmc.Tracing
+open Lmc.Tracing.LoggerProvider
+open Lmc.Logging
+
+LoggerFactory.create [
+    UseProvider (TracingProvider.create())
+
+    // ... other options
+]
+```
+
+**Note**: TracingLogger will add log messages only for a current log level. If you need to add all log messages into tracing, there must be set a log level `Tracing`.
 
 ## Release
 1. Increment version in `Tracing.fsproj`

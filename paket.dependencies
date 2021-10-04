@@ -5,10 +5,12 @@ nuget FSharp.Core ~> 5.0
 nuget FSharp.Data ~> 4.0
 nuget Jaeger ~> 1.0
 nuget Jaeger.Senders.Grpc ~> 1.0
+nuget Microsoft.Extensions.Logging ~> 5.0
 
 git ssh://git@bitbucket.lmc.cz:7999/archi/nuget-server.git master Packages: /nuget/
 # LMC Nuget dependencies:
 nuget Lmc.ErrorHandling ~> 5.1
+nuget Lmc.Logging ~> 5.1
 nuget Lmc.State ~> 4.1
 
 // [ FAKE GROUP ]

@@ -1,7 +1,7 @@
 #load ".fake/build.fsx/intellisense.fsx"
 
 // ========================================================================================================
-// === F# / Library fake build ==================================================================== 2.0.0 =
+// === F# / Library fake build ==================================================================== 2.0.1 =
 // --------------------------------------------------------------------------------------------------------
 // Options:
 //  - no-clean   - disables clean of dirs in the first step (required on CI)
@@ -105,7 +105,7 @@ Target.create "Clean" <| skipOn "no-clean" (fun _ ->
 )
 
 Target.create "AssemblyInfo" (fun _ ->
-    let release = ReleaseNotes.parse (System.IO.File.ReadAllLines changeLog |> Seq.filter ((<>) "## Unreleased"))
+    let release = ReleaseNotes.parse (File.ReadAllLines changeLog |> Seq.filter ((<>) "## Unreleased"))
 
     let getAssemblyInfoAttributes projectName =
         [
@@ -120,11 +120,11 @@ Target.create "AssemblyInfo" (fun _ ->
         ]
 
     let getProjectDetails (projectPath: string) =
-        let projectName = System.IO.Path.GetFileNameWithoutExtension(projectPath)
+        let projectName = Path.GetFileNameWithoutExtension(projectPath)
         (
             projectPath,
             projectName,
-            System.IO.Path.GetDirectoryName(projectPath),
+            Path.GetDirectoryName(projectPath),
             (getAssemblyInfoAttributes projectName)
         )
 

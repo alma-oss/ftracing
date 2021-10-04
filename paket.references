@@ -2,5 +2,7 @@ FSharp.Core
 FSharp.Data
 Jaeger
 Jaeger.Senders.Grpc
+Microsoft.Extensions.Logging
 Lmc.ErrorHandling
+Lmc.Logging
 Lmc.State
