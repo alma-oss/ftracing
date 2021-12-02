@@ -19,7 +19,9 @@ module private Headers =
         headerList
         |> Seq.fold
             (fun (headers: Headers) (key, value) ->
-                headers.Add(key, value)
+                if not <| headers.ContainsKey key then
+                    headers.Add(key, value)
+
                 headers
             )
             (Headers())

@@ -2,6 +2,7 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+- Fix extracting headers with multiple values (_ignoring other than the first value_)
 
 ## 2.4.0 - 2021-10-04
 - Make `TracingLogger` to be enabled only if Tracer is available
