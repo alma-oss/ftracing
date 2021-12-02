@@ -2,6 +2,8 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+
+## 2.4.1 - 2021-11-02
 - Fix extracting headers with multiple values (_ignoring other than the first value_)
 
 ## 2.4.0 - 2021-10-04
