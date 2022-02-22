@@ -2,6 +2,8 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+
+## 4.0.0 - 2022-02-22
 - Update dependencies
 - [**BC**] Remove `ActiveTrace.Scope` and leaving it only as `ActiveTrace.Span` to fix active span problem, when previous span was finished
 - [**BC**] Rename `ActiveTrace` type and module to `LiveTrace` (_not to confuse with Active Span_)
