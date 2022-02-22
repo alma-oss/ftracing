@@ -2,6 +2,10 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+- Update dependencies
+- [**BC**] Remove `ActiveTrace.Scope` and leaving it only as `ActiveTrace.Span` to fix active span problem, when previous span was finished
+- [**BC**] Rename `ActiveTrace` type and module to `LiveTrace` (_not to confuse with Active Span_)
+    - [**BC**] Also rename `Trace.Active` to `Trace.Live`
 
 ## 3.0.0 - 2022-01-05
 - [**BC**] Use net6.0
