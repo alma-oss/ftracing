@@ -141,14 +141,19 @@ module TraceContext =
 
 type LiveTrace =
     | Span of ISpan
+    | Scope of IScope
 
     member this.Finish() =
         use factory = Tracer.loggerFactory()
         let logger = factory.CreateLogger("Trace.finish")
 
         match this with
+        | Scope scope ->
+            logger.LogTrace("{type}.Finish({span}) in scope {scope}", "Scoped", scope.Span, scope)
+            scope.Dispose()
+
         | Span span ->
-            logger.LogTrace("Span.Finish(Trace: {traceId}, Span: {spanId})", span.Context.TraceId, span.Context.SpanId)
+            logger.LogTrace("{type}.Finish({span})", "Span", span)
             span.Finish()
 
     interface IDisposable with
@@ -161,6 +166,7 @@ module LiveTrace =
 
     let context = function
         | Span span -> TraceContext span.Context
+        | Scope scope -> TraceContext scope.Span.Context
 
     let id = context >> TraceContext.id
     let traceId = context >> TraceContext.traceId
@@ -205,6 +211,7 @@ module Trace =
         |> List.iter (fun (key, value) ->
             match trace with
             | Live (Span span) -> span.SetBaggageItem(key, value) |> ignore
+            | Live (Scope scope) -> scope.Span.SetBaggageItem(key, value) |> ignore
             | Context _
             | Inactive -> ()
         )
@@ -215,6 +222,7 @@ module Trace =
         |> List.iter (fun (tag, value) ->
             match trace with
             | Live (Span span) -> span.SetTag(tag, value) |> ignore
+            | Live (Scope scope) -> scope.Span.SetTag(tag, value) |> ignore
             | Context _
             | Inactive -> ()
         )
@@ -223,6 +231,7 @@ module Trace =
     let addError error trace =
         match trace |> addTags [ "error", "true" ] with
         | Live (Span span) -> span.Log(error |> TracedError.toErrorDictionary) |> ignore
+        | Live (Scope scope) -> scope.Span.Log(error |> TracedError.toErrorDictionary) |> ignore
         | Context _
         | Inactive -> ()
         trace
@@ -245,9 +254,11 @@ module Trace =
             | AsFollowsFrom Inactive -> None
 
             | AsChildOf (Live (Span parent)) -> (span name).AsChildOf(parent.Context) |> Some
+            | AsChildOf (Live (Scope parent)) -> (span name).AsChildOf(parent.Span.Context) |> Some
             | AsChildOf (Context (TraceContext parent)) -> (span name).AsChildOf(parent) |> Some
 
             | AsFollowsFrom (Live (Span parent)) -> (span name).AddReference(References.FollowsFrom, parent.Context) |> Some
+            | AsFollowsFrom (Live (Scope parent)) -> (span name).AddReference(References.FollowsFrom, parent.Span.Context) |> Some
             | AsFollowsFrom (Context (TraceContext parent)) -> (span name).AddReference(References.FollowsFrom, parent) |> Some
 
         let reference reference name =
@@ -290,7 +301,7 @@ module Trace =
             currentIn (Tracer.tracer())
 
         let start name =
-            (Build.span name).StartActive().Span |> Span |> Live
+            (Build.span name).StartActive() |> Scope |> Live
 
         let finish = current >> finish
 
@@ -318,12 +329,12 @@ module Trace =
 
         let startActive reference parentTrace name =
             match name |> Build.reference (reference parentTrace) with
-            | Some trace -> trace.StartActive().Span |> Span |> Live
+            | Some trace -> trace.StartActive() |> Scope |> Live
             | _ -> Inactive
 
         let startActiveAt reference startTime parentTrace name =
             match name |> Build.referenceAt (reference parentTrace) startTime with
-            | Some trace -> trace.StartActive().Span |> Span |> Live
+            | Some trace -> trace.StartActive() |> Scope |> Live
             | _ -> Inactive
 
         let startActiveFromActive reference name =

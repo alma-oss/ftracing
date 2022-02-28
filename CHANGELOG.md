@@ -2,6 +2,7 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+- [**BC**] Add previously removed `LiveTrace.Scope` to fix a problem with unfinished scope
 
 ## 4.0.0 - 2022-02-22
 - Update dependencies
