@@ -531,7 +531,7 @@ NUGET
       Lmc.ErrorHandling (>= 6.0)
 GIT
   remote: ssh://git@bitbucket.lmc.cz:7999/archi/nuget-server.git
-     (666a19af55075f4094bb6154ae3f594b1632efc5)
+     (98efda10aa35ebe868e0d3298141723bae5202cb)
       path: /nuget/
 GROUP Build
 STORAGE: NONE
