@@ -188,6 +188,8 @@ type Trace =
 
 [<RequireQualifiedAccess>]
 module Trace =
+    open System.Collections.Generic
+
     let ofContextOption = function
         | Some context -> Context context
         | _ -> Inactive
@@ -206,18 +208,26 @@ module Trace =
     // Update spans
     //
 
-    let addBaggage baggage trace =
-        baggage
-        |> List.iter (fun (key, value) ->
-            match trace with
-            | Live (Span span) -> span.SetBaggageItem(key, value) |> ignore
-            | Live (Scope scope) -> scope.Span.SetBaggageItem(key, value) |> ignore
-            | Context _
-            | Inactive -> ()
-        )
+    let addBaggage (baggage: (string * string) list) trace =
+        let logs () =
+            baggage
+            |> List.fold
+                (fun (acc: IDictionary<string, obj>) (key, value) ->
+                    acc.Add(key, value)
+                    acc
+                )
+                (Dictionary<string, obj>())
+
+        match trace with
+        | Live (Span span) -> span.Log(logs()) |> ignore
+            // span.SetBaggageItem(key, value) |> ignore
+        | Live (Scope scope) -> scope.Span.Log(logs()) |> ignore
+            // scope.Span.SetBaggageItem(key, value) |> ignore
+        | Context _
+        | Inactive -> ()
         trace
 
-    let addTags (tags: (string * string) List) trace =
+    let addTags (tags: (string * string) list) trace =
         tags
         |> List.iter (fun (tag, value) ->
             match trace with
@@ -284,16 +294,14 @@ module Trace =
         let private currentIn (tracer: ITracer) =
             use factory = Tracer.loggerFactory()
             let logger = factory.CreateLogger("Trace.Active.current")
-            let manager = tracer.ScopeManager
 
-            logger.LogTrace("Manager<{type}>", manager.GetType())
+            logger.LogTrace("Manager<{type}>", tracer.ScopeManager.GetType())
 
-            match manager.Active with
+            match tracer.ActiveSpan with
             | null ->
                 logger.LogTrace("No Active Trace")
                 Inactive
-            | scope ->
-                let span = scope.Span
+            | span ->
                 logger.LogTrace("Active Trace: {traceId} with Span: {spanId}", span.Context.TraceId, span.Context.SpanId)
                 Live (Span span)
 
@@ -314,47 +322,49 @@ module Trace =
 
     [<RequireQualifiedAccess>]
     module internal Reference =
-        let start (reference: Trace -> Build.Reference) parentTrace name =
+        type private BuildReference = Trace -> Build.Reference
+
+        let start (reference: BuildReference) (parentTrace: Trace) (name: string): Trace =
             match name |> Build.reference (reference parentTrace) with
             | Some trace -> trace.Start() |> Span |> Live
             | _ -> Inactive
 
-        let startAt (reference: Trace -> Build.Reference) startTime parentTrace name =
+        let startAt (reference: BuildReference) (startTime: DateTimeOffset) (parentTrace: Trace) (name: string): Trace =
             match name |> Build.referenceAt (reference parentTrace) startTime with
             | Some trace -> trace.Start() |> Span |> Live
             | _ -> Inactive
 
-        let startFromActive reference name =
+        let startFromActive (reference: BuildReference) (name: string): Trace =
             name |> start reference (Active.current())
 
-        let startActive reference parentTrace name =
+        let startActive (reference: BuildReference) (parentTrace: Trace) (name: string): Trace =
             match name |> Build.reference (reference parentTrace) with
             | Some trace -> trace.StartActive() |> Scope |> Live
             | _ -> Inactive
 
-        let startActiveAt reference startTime parentTrace name =
+        let startActiveAt (reference: BuildReference) (startTime: DateTimeOffset) (parentTrace: Trace) (name: string) : Trace=
             match name |> Build.referenceAt (reference parentTrace) startTime with
             | Some trace -> trace.StartActive() |> Scope |> Live
             | _ -> Inactive
 
-        let startActiveFromActive reference name =
+        let startActiveFromActive (reference: BuildReference) (name: string) : Trace=
             name |> startActive reference (Active.current())
 
-        let continueOrStartActive reference extract name =
+        let continueOrStartActive (reference: BuildReference) (extract: unit -> Trace) (name: string): Trace =
             name
             |> match extract() with
                 | Inactive -> Active.start
                 | trace -> startActive reference trace
 
-        let continueOrStartActiveFromActive reference = continueOrStartActive reference Active.current
+        let continueOrStartActiveFromActive (reference: BuildReference): string -> Trace = continueOrStartActive reference Active.current
 
-        let continueOrStart reference extract name =
+        let continueOrStart (reference: BuildReference) (extract: unit -> Trace) (name: string): Trace =
             name
             |> match extract() with
                 | Inactive -> Span.start
                 | trace -> start reference trace
 
-        let continueOrStartAt reference extract startTime name =
+        let continueOrStartAt (reference: BuildReference) (extract: unit -> Trace) (startTime: DateTimeOffset) (name: string): Trace =
             name
             |> match extract() with
                 | Inactive -> Span.startAt startTime
