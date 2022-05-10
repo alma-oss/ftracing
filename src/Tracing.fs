@@ -1,15 +1,12 @@
 namespace Lmc.Tracing
 
 open System
-open Jaeger
-open Jaeger.Propagation
-open Jaeger.Senders.Grpc
-open Jaeger.Samplers
-open OpenTracing
-open OpenTracing.Propagation
-open OpenTracing.Tag
-open OpenTracing.Util
+open System.Diagnostics
+open System.Collections.Generic
 
+open OpenTelemetry
+open OpenTelemetry.Trace
+open OpenTelemetry.Resources
 open Microsoft.Extensions.Logging
 
 open Lmc.ErrorHandling
@@ -17,17 +14,10 @@ open Lmc.Logging
 
 [<RequireQualifiedAccess>]
 module Tracer =
-    let requiredEnvironmentVariables =
-        [
-            "JAEGER_SERVICE_NAME"
-            "JAEGER_GRPC_TARGET"
-            "JAEGER_TRACEID_128BIT"
-            "JAEGER_SAMPLER_PARAM"
-            "JAEGER_SAMPLER_TYPE"
-            "JAEGER_SENDER_FACTORY"
-            "JAEGER_PROPAGATION"
-            "JAEGER_TAGS"
-        ]
+    let requiredEnvironmentVariables = [
+        "TRACING_SERVICE_NAME"
+        "TRACING_THRIFT_HOST"
+    ]
 
     [<RequireQualifiedAccess>]
     module Check =
@@ -44,117 +34,172 @@ module Tracer =
 
     let internal loggerFactory () =
         LoggerFactory.create [
-            LogToFromEnvironment "JAEGER_LOG_TO"
-            UseLevelFromEnvironment "JAEGER_LOG_LEVEL"
+            LogToFromEnvironment "TRACING_LOG_TO"
+            UseLevelFromEnvironment "TRACING_LOG_LEVEL"
 
             LogToSerilog [
-                AddMetaFromEnvironment "JAEGER_LOG_META"
+                AddMetaFromEnvironment "TRACING_LOG_META"
             ]
         ]
 
-    let private initTracer scopeManager =
+    let private env = getEnvVarValue >> Result.orFail
+
+    let mutable private globalTracerProvider: TracerProvider option = None
+
+    let private initTracer () =
         use loggerFactory = loggerFactory()
-        let logger = loggerFactory.CreateLogger("Trace.Tracer")
+        let logger = loggerFactory.CreateLogger "OpenTelemetry.Tracer"
 
-        // todo<idea> - build config from values which should be the same (propagation=b3, ...)
-        let config = Configuration.FromEnv(loggerFactory)
+        let serviceName = env "TRACING_SERVICE_NAME"
 
-        config.ReporterConfig.SenderConfig.SenderResolver.RegisterSenderFactory<GrpcSenderFactory>()
-        |> ignore
+        let tracerProvider =
+            match globalTracerProvider with
+            | Some tracerProvider ->
+                logger.LogDebug("Use global tracer provider")
+                tracerProvider
 
-        let tracer =
-            config
-                .GetTracerBuilder()
-                .WithScopeManager(scopeManager)
-                .Build()
-        logger.LogDebug("Tracer initialized with ScopeManager<{ScopeManager}>.", tracer.ScopeManager.GetType())
+            | _ ->
+                logger.LogDebug("Init tracer provider")
+                let attributes =
+                    match getEnvVarValue "TRACING_TAGS" with
+                    | Ok tags ->
+                        tags.Split ","
+                        |> Seq.choose (fun tag ->
+                            match tag.Split "=" |> Seq.toList with
+                            | [] | [ _ ] -> None
+                            | [ key; value ] -> Some (key, value)
+                            | _ -> None
+                        )
+                        |> Seq.map (fun (k, v) -> KeyValuePair (k, v :> obj))
+                    | _ -> Seq.empty
 
-        tracer
+                let provider =
+                    Sdk.CreateTracerProviderBuilder()
+                        .AddSource(serviceName)
+                        .SetResourceBuilder(
+                            ResourceBuilder.CreateDefault()
+                                .AddService(serviceName = serviceName)
+                                .AddAttributes(attributes)
+                                .AddTelemetrySdk()
+                        )
+                        .AddHttpClientInstrumentation()
+                        .AddJaegerExporter(fun opt ->
+                            let logger = loggerFactory.CreateLogger("Jaeger")
 
-    let buildTracer scopeManager =
+                            let logConf scope (conf: Exporter.JaegerExporterOptions) =
+                                logger.LogDebug("Settings<{scope}> ... Endpoint: {opt}", scope, conf.Endpoint)
+                                logger.LogDebug("Settings<{scope}> ... ExportProcessorType: {opt}", scope, conf.ExportProcessorType)
+                                logger.LogDebug("Settings<{scope}> ... MaxPayloadSizeInBytes: {opt}", scope, conf.MaxPayloadSizeInBytes)
+                                logger.LogDebug("Settings<{scope}> ... AgentHost: {opt}", scope, conf.AgentHost)
+                                logger.LogDebug("Settings<{scope}> ... AgentPort: {opt}", scope, conf.AgentPort)
+                                logger.LogDebug("Settings<{scope}> ... Protocol: {opt}", scope, conf.Protocol)
+                                logger.LogDebug("Settings<{scope}> ... HttpClientFactory: {opt}", scope, conf.HttpClientFactory.Invoke())
+
+                            opt |> logConf "default"
+
+                            let host = env "TRACING_THRIFT_HOST"
+                            opt.Endpoint <- Uri($"http://{host}/api/traces")
+                            opt.Protocol <- Exporter.JaegerExportProtocol.HttpBinaryThrift
+
+                            opt |> logConf "app"
+                        )
+                        .SetSampler(AlwaysOnSampler())
+
+                let provider =
+                    match getEnvVarValue "TRACING_EXPORT_CONSOLE" |> Result.map(fun s -> s.ToLowerInvariant()) with
+                    | Ok "on" -> provider.AddConsoleExporter()
+                    | _ -> provider
+
+                let tracerProvider = provider.Build()
+                globalTracerProvider <- Some tracerProvider
+                tracerProvider
+
+        tracerProvider.GetTracer(serviceName)
+
+    let buildTracer () =
         let mutable tracerCache: Tracer option = None
 
         fun () ->
+            use loggerFactory = loggerFactory()
+            let logger = loggerFactory.CreateLogger("OpenTelemetry.Tracer.Build")
+
             match tracerCache with
-            | Some tracer -> tracer
+            | Some tracer ->
+                logger.LogDebug("Getting cached tracer")
+                tracer
             | None ->
-                let tracer = initTracer scopeManager
+                logger.LogDebug("Initalizing new tracer")
+                let tracer = initTracer ()
                 tracerCache <- Some tracer
                 tracer
 
     /// Default tracer for a common usage,
     /// where an async "thread" is a scope for an active trace
     let tracer =
-        buildTracer (AsyncLocalScopeManager())
+        buildTracer ()
 
-type TracedError<'Error> = {
-    Error: 'Error
-    Message: string
-    Stack: string option
-    Kind: string option
-}
+    let finishTracerProvider () =
+        use loggerFactory = loggerFactory()
+        let logger = loggerFactory.CreateLogger "OpenTelemetry.Tracer"
 
-[<RequireQualifiedAccess>]
-module TracedError =
-    open System.Collections.Generic
+        match globalTracerProvider with
+        | Some tracerProvider ->
+            logger.LogInformation("Finishing global tracer provider ...")
+            tracerProvider.Dispose()
+            globalTracerProvider <- None
+        | _ ->
+            logger.LogWarning("There is no global tracer provider.")
 
-    let ofExn (e: exn) =
-        {
-            Error = e
-            Message = e.Message
-            Stack = Some e.StackTrace
-            Kind = Some (e.GetType().ToString())
-        }
+[<CustomEquality; NoComparison>]
+type TraceContext =
+    | TraceContext of SpanContext
 
-    let ofError format error: TracedError<'Error> =
-        {
-            Error = error
-            Message = error |> format
-            Stack = None
-            Kind = try error.GetType().ToString() |> Some with _ -> None
-        }
+    member internal this.Value () =
+        match this with
+        | TraceContext context -> $"{context.TraceId}.{context.SpanId}"
 
-    let internal toErrorDictionary error =
-        [
-            "event", "error" :> obj
-            "error.object", error.Error :> obj
-            "message", error.Message :> obj
+    override this.GetHashCode() =
+        this.Value() |> hash
 
-            match error.Stack with
-            | Some stack -> "stack", stack :> obj
-            | _ -> ()
+    override this.ToString() =
+        this.Value()
 
-            match error.Kind with
-            | Some kind -> "error.kind", kind :> obj
-            | _ -> ()
-        ]
-        |> List.map (fun (k, v) -> KeyValuePair(k, v))
-        |> Dictionary
-
-type TraceContext = TraceContext of ISpanContext
+    override ctxA.Equals (b) =
+        match b with
+        | :? TraceContext as ctxB -> ctxA.Value() = ctxB.Value()
+        | _ -> false
 
 [<RequireQualifiedAccess>]
 module TraceContext =
-    let id (TraceContext context) = $"{context.TraceId}.{context.SpanId}"
-    let traceId (TraceContext context) = context.TraceId
-    let spanId (TraceContext context) = context.SpanId
+    let id: TraceContext -> string = fun ctx -> ctx.Value()
+    let traceId (TraceContext context): string = string context.TraceId
+    let spanId (TraceContext context): string = string context.SpanId
 
+[<CustomEquality; NoComparison>]
 type LiveTrace =
-    | Span of ISpan
-    | Scope of IScope
+    | Span of TelemetrySpan
 
     member this.Finish() =
         use factory = Tracer.loggerFactory()
         let logger = factory.CreateLogger("Trace.finish")
 
         match this with
-        | Scope scope ->
-            logger.LogTrace("{type}.Finish({span}) in scope {scope}", "Scoped", scope.Span, scope)
-            scope.Dispose()
-
         | Span span ->
             logger.LogTrace("{type}.Finish({span})", "Span", span)
-            span.Finish()
+            span.End()
+
+    member this.Context () =
+        match this with
+        | Span span -> TraceContext span.Context
+
+    override this.GetHashCode() =
+        this.Context() |> hash
+
+    override spanA.Equals (b) =
+        match b with
+        | :? LiveTrace as spanB -> spanA.Context() = spanB.Context()
+        | :? TraceContext as ctxB -> spanA.Context() = ctxB
+        | _ -> false
 
     interface IDisposable with
         member this.Dispose() =
@@ -162,16 +207,16 @@ type LiveTrace =
 
 [<RequireQualifiedAccess>]
 module LiveTrace =
-    let finish (trace: LiveTrace) = trace.Finish()
+    let finish (trace: LiveTrace): unit = trace.Finish()
 
-    let context = function
+    let context: LiveTrace -> TraceContext = function
         | Span span -> TraceContext span.Context
-        | Scope scope -> TraceContext scope.Span.Context
 
-    let id = context >> TraceContext.id
-    let traceId = context >> TraceContext.traceId
-    let spanId = context >> TraceContext.spanId
+    let id: LiveTrace -> string = context >> TraceContext.id
+    let traceId: LiveTrace -> string = context >> TraceContext.traceId
+    let spanId: LiveTrace -> string = context >> TraceContext.spanId
 
+[<CustomEquality; NoComparison>]
 type Trace =
     | Live of LiveTrace
     | Context of TraceContext
@@ -182,47 +227,68 @@ type Trace =
         | Live trace -> trace.Finish()
         | _ -> ()
 
+    member internal this.ParentId() =
+        match this with
+        | Live (Span single) when (string single.ParentSpanId).Replace("0", "") = "" -> None
+        | Live (Span child) -> Some child.ParentSpanId
+        | _ -> None
+
+    member private this.Value () =
+        match this with
+        | Live trace -> trace.Context().Value()
+        | Context context -> context.Value()
+        | Inactive -> ""
+
+    override this.GetHashCode() =
+        this.Value() |> hash
+
+    override traceA.Equals (b) =
+        match b with
+        | :? Trace as traceB -> traceA.Value() = traceB.Value()
+        | :? TraceContext as ctxB -> traceA.Value() = ctxB.Value()
+        | _ -> false
+
+    override this.ToString() =
+        match this with
+        | Live (Span span) ->
+            let context = span.Context
+            let parentSuffix =
+                this.ParentId()
+                |> Option.map (string >> (+) ".")
+                |> Option.defaultValue ""
+
+            sprintf "Trace.Live (%s.%s%s)" (string context.TraceId) (string context.SpanId) parentSuffix
+        | Context context -> sprintf "Trace.Context (%s)" (context.Value())
+        | Inactive -> "Trace.Inactive"
+
     interface IDisposable with
         member this.Dispose() =
             this.Finish()
 
 [<RequireQualifiedAccess>]
 module Trace =
-    open System.Collections.Generic
-
-    let ofContextOption = function
+    let ofContextOption: TraceContext option -> Trace = function
         | Some context -> Context context
         | _ -> Inactive
 
-    let finish (trace: Trace) = trace.Finish()
+    let finish (trace: Trace): unit = trace.Finish()
 
-    let context = function
+    let context: Trace -> TraceContext option = function
         | Live trace -> Some (trace |> LiveTrace.context)
         | _ -> None
 
-    let id = context >> Option.map TraceContext.id
-    let traceId = context >> Option.map TraceContext.traceId
-    let spanId = context >> Option.map TraceContext.spanId
+    let id: Trace -> string option = context >> Option.map TraceContext.id
+    let traceId: Trace -> string option = context >> Option.map TraceContext.traceId
+    let spanId: Trace -> string option = context >> Option.map TraceContext.spanId
+    let parentId: Trace -> string option = fun trace -> trace.ParentId() |> Option.map string
 
     //
     // Update spans
     //
 
-    let addBaggage (baggage: (string * string) list) trace =
-        let logs () =
-            baggage
-            |> List.fold
-                (fun (acc: IDictionary<string, obj>) (key, value) ->
-                    acc.Add(key, value)
-                    acc
-                )
-                (Dictionary<string, obj>())
-
+    let addEvent (event: string) trace =
         match trace with
-        | Live (Span span) -> span.Log(logs()) |> ignore
-            // span.SetBaggageItem(key, value) |> ignore
-        | Live (Scope scope) -> scope.Span.Log(logs()) |> ignore
-            // scope.Span.SetBaggageItem(key, value) |> ignore
+        | Live (Span span) -> span.AddEvent(event) |> ignore
         | Context _
         | Inactive -> ()
         trace
@@ -231,20 +297,14 @@ module Trace =
         tags
         |> List.iter (fun (tag, value) ->
             match trace with
-            | Live (Span span) -> span.SetTag(tag, value) |> ignore
-            | Live (Scope scope) -> scope.Span.SetTag(tag, value) |> ignore
+            | Live (Span span) -> span.SetAttribute(tag, value) |> ignore
             | Context _
             | Inactive -> ()
         )
         trace
 
-    let addError error trace =
-        match trace |> addTags [ "error", "true" ] with
-        | Live (Span span) -> span.Log(error |> TracedError.toErrorDictionary) |> ignore
-        | Live (Scope scope) -> scope.Span.Log(error |> TracedError.toErrorDictionary) |> ignore
-        | Context _
-        | Inactive -> ()
-        trace
+    let addError error =
+        addTags (error |> TracedError.asTags)
 
     [<RequireQualifiedAccess>]
     module internal Build =
@@ -252,30 +312,68 @@ module Trace =
             | AsChildOf of Trace
             | AsFollowsFrom of Trace
 
-        let span name =
-            Tracer.tracer().BuildSpan(name)
+        // name             : string *
+        // kind             : SpanKind *
+        // parentContext    : inref<SpanContext> *
+        // initialAttributes: SpanAttributes *
+        // links            : IEnumerable<Link> *
+        // startTime        : DateTimeOffset
 
-        let spanAt startTime name =
-            (span name).WithStartTimestamp(startTime)
+        let span (name: string) =
+            Tracer.tracer().StartSpan(name)
 
-        let private createReference (span: string -> ISpanBuilder) reference name =
+        let spanAt (startTime: DateTimeOffset) (name: string) =
+            Tracer.tracer().StartSpan(name = name, startTime = startTime)
+
+        let startActive name =
+            Tracer.tracer().StartActiveSpan(name)
+
+        [<RequireQualifiedAccess>]
+        module private ChildOf =
+            let private childOf (parent: SpanContext) name =
+                Tracer.tracer().StartSpan(name = name, parentContext = &parent)
+
+            let private childOfAt (startTime: DateTimeOffset) (parent: SpanContext) name =
+                Tracer.tracer().StartSpan(name = name, startTime = startTime, parentContext = &parent)
+
+            let at = function
+                | Some startTime -> childOfAt startTime
+                | _ -> childOf
+
+        let private createReference childOf reference name =
             match reference with
             | AsChildOf Inactive
             | AsFollowsFrom Inactive -> None
 
-            | AsChildOf (Live (Span parent)) -> (span name).AsChildOf(parent.Context) |> Some
-            | AsChildOf (Live (Scope parent)) -> (span name).AsChildOf(parent.Span.Context) |> Some
-            | AsChildOf (Context (TraceContext parent)) -> (span name).AsChildOf(parent) |> Some
+            | AsChildOf (Live (Span parent)) -> name |> childOf parent.Context |> Some
+            | AsChildOf (Context (TraceContext parent)) -> name |> childOf parent |> Some
 
-            | AsFollowsFrom (Live (Span parent)) -> (span name).AddReference(References.FollowsFrom, parent.Context) |> Some
-            | AsFollowsFrom (Live (Scope parent)) -> (span name).AddReference(References.FollowsFrom, parent.Span.Context) |> Some
-            | AsFollowsFrom (Context (TraceContext parent)) -> (span name).AddReference(References.FollowsFrom, parent) |> Some
+            | AsFollowsFrom (Live (Span parent)) -> name |> childOf parent.Context |> Some
+            | AsFollowsFrom (Context (TraceContext parent)) -> name |> childOf parent |> Some
 
         let reference reference name =
-            createReference span reference name
+            createReference (ChildOf.at None) reference name
 
         let referenceAt reference startTime name =
-            createReference (spanAt startTime) reference name
+            createReference (ChildOf.at (Some startTime)) reference name
+
+        [<RequireQualifiedAccess>]
+        module private ActiveChildOf =
+            let private childOf (parent: SpanContext) name =
+                Tracer.tracer().StartActiveSpan(name = name, parentContext = &parent)
+
+            let private childOfAt (startTime: DateTimeOffset) (parent: SpanContext) name =
+                Tracer.tracer().StartActiveSpan(name = name, startTime = startTime, parentContext = &parent)
+
+            let at = function
+                | Some startTime -> childOfAt startTime
+                | _ -> childOf
+
+        let activeReference reference name =
+            createReference (ActiveChildOf.at None) reference name
+
+        let activeReferenceAt reference startTime name =
+            createReference (ActiveChildOf.at (Some startTime)) reference name
 
     //
     // Public Span modules
@@ -284,39 +382,40 @@ module Trace =
     [<RequireQualifiedAccess>]
     module Span =
         let start name =
-            (Build.span name).Start() |> Span |> Live
+            name |> Build.span |> Span |> Live
 
         let startAt startTime name =
-            (Build.spanAt startTime name).Start() |> Span |> Live
+            name |> Build.spanAt startTime |> Span |> Live
 
     [<RequireQualifiedAccess>]
     module Active =
-        let private currentIn (tracer: ITracer) =
+        let private (|NoopSpan|_|): TelemetrySpan -> _ = function
+            | span when (TraceContext span.Context |> TraceContext.id).Replace("0", "") = "." -> Some NoopSpan
+            | _ -> None
+
+        let private currentIn () =
             use factory = Tracer.loggerFactory()
             let logger = factory.CreateLogger("Trace.Active.current")
 
-            logger.LogTrace("Manager<{type}>", tracer.ScopeManager.GetType())
-
-            match tracer.ActiveSpan with
-            | null ->
+            match Tracer.CurrentSpan with
+            | null | NoopSpan ->
                 logger.LogTrace("No Active Trace")
                 Inactive
             | span ->
                 logger.LogTrace("Active Trace: {traceId} with Span: {spanId}", span.Context.TraceId, span.Context.SpanId)
                 Live (Span span)
 
-        let current () =
-            currentIn (Tracer.tracer())
+        let current = currentIn
 
         let start name =
-            (Build.span name).StartActive() |> Scope |> Live
+            name |> Build.startActive |> Span |> Live
 
         let finish = current >> finish
 
         /// Activate the trace in current scope manager as an Active trace.
         let activate trace =
             match trace with
-            | Live (Span s) -> Tracer.tracer().ScopeManager.Activate(s, true) |> ignore
+            | Live (Span s) -> Tracer.WithSpan(s) |> ignore
             | _ -> ()
             |> current
 
@@ -326,25 +425,25 @@ module Trace =
 
         let start (reference: BuildReference) (parentTrace: Trace) (name: string): Trace =
             match name |> Build.reference (reference parentTrace) with
-            | Some trace -> trace.Start() |> Span |> Live
+            | Some span -> span |> Span |> Live
             | _ -> Inactive
 
         let startAt (reference: BuildReference) (startTime: DateTimeOffset) (parentTrace: Trace) (name: string): Trace =
             match name |> Build.referenceAt (reference parentTrace) startTime with
-            | Some trace -> trace.Start() |> Span |> Live
+            | Some span -> span |> Span |> Live
             | _ -> Inactive
 
         let startFromActive (reference: BuildReference) (name: string): Trace =
             name |> start reference (Active.current())
 
         let startActive (reference: BuildReference) (parentTrace: Trace) (name: string): Trace =
-            match name |> Build.reference (reference parentTrace) with
-            | Some trace -> trace.StartActive() |> Scope |> Live
+            match name |> Build.activeReference (reference parentTrace) with
+            | Some activeSpan -> activeSpan |> Span |> Live
             | _ -> Inactive
 
         let startActiveAt (reference: BuildReference) (startTime: DateTimeOffset) (parentTrace: Trace) (name: string) : Trace=
-            match name |> Build.referenceAt (reference parentTrace) startTime with
-            | Some trace -> trace.StartActive() |> Scope |> Live
+            match name |> Build.activeReferenceAt (reference parentTrace) startTime with
+            | Some activeSpan -> activeSpan |> Span |> Live
             | _ -> Inactive
 
         let startActiveFromActive (reference: BuildReference) (name: string) : Trace=

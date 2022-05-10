@@ -1,7 +1,7 @@
 F-Tracing
 =========
 
-> A library to help with Jaeger tracing.
+> A library to help with tracing.
 
 ## Install
 
@@ -20,26 +20,31 @@ Lmc.Tracing
 ## Configuration
 You can use environment values to configure tracing and inner logger
 
-List of required/recommended environment variables
+List of Required environment variables
 ```
-JAEGER_SERVICE_NAME
-JAEGER_GRPC_TARGET
-JAEGER_TRACEID_128BIT
-JAEGER_SAMPLER_PARAM
-JAEGER_SAMPLER_TYPE
-JAEGER_SENDER_FACTORY
-JAEGER_PROPAGATION
-JAEGER_TAGS
+TRACING_SERVICE_NAME
+TRACING_THRIFT_HOST
+```
+
+List of Recommended environment variables
+```
+TRACING_TAGS
 ```
 
 List of optional logging environment variables (see https://bitbucket.lmc.cz/projects/ARCHI/repos/flogging/browse for more information)
 ```
-JAEGER_LOG_TO
-JAEGER_LOG_LEVEL
-JAEGER_LOG_META
+TRACING_LOG_TO
+TRACING_LOG_LEVEL
+TRACING_LOG_META
 ```
 
-**TIP**: You can add instance data to `JAEGER_LOG_META` by `JAEGER_LOG_META="domain:DOMAIN; context:CONTEXT; purpose:PURPOSE; version:VERSION"`
+**TIP**: You can add instance data to `TRACING_LOG_META` by `TRACING_LOG_META="domain:DOMAIN; context:CONTEXT; purpose:PURPOSE; version:VERSION"`
+
+And one special (mostly for debugging)
+> It will enable a ConsoleExporter for OpenTelemetry tracing, which outputs all span information to the console stdout
+```
+TRACING_EXPORT_CONSOLE="on"
+```
 
 ## Usage
 

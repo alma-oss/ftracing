@@ -1,0 +1,69 @@
+module Propagation
+
+open Expecto
+open Lmc.Tracing
+open Lmc.Tracing.Extension
+
+[<Tests>]
+let checkTracePropagation =
+    testList "Tracing - trace propagation" [
+        testCase "should inject trace to headers" <| fun _ ->
+            let span = Trace.Span.start "span"
+            let headers = Http.inject span []
+
+            Expect.isNonEmpty headers "Injected headers should not be empty"
+            Expect.hasLength headers 3 "There should be 3 injected headers"
+
+            headers
+            |> List.iter (fun (key, _) -> Expect.stringStarts key "X-B3-" "Injected header should start with X-B3-")
+
+            let map = headers |> Map.ofList
+            Expect.equal (span |> Trace.traceId) (map |> Map.tryFind "X-B3-TraceId") "Headers should have traceId header."
+            Expect.equal (span |> Trace.spanId) (map |> Map.tryFind "X-B3-SpanId") "Headers should have spanId header."
+
+        testCase "should inject child trace to headers" <| fun _ ->
+            let span = "main" |> Trace.Span.start
+            let child = "child" |> Trace.ChildOf.start span
+
+            let headers = Http.inject child []
+
+            Expect.isNonEmpty headers "Injected headers should not be empty"
+            Expect.hasLength headers 4 "There should be 4 injected headers"
+
+            headers
+            |> List.iter (fun (key, _) -> Expect.stringStarts key "X-B3-" "Injected header should start with X-B3-")
+
+            let map = headers |> Map.ofList
+            Expect.equal (child |> Trace.traceId) (map |> Map.tryFind "X-B3-TraceId") "Headers should have traceId header."
+            Expect.equal (child |> Trace.spanId) (map |> Map.tryFind "X-B3-SpanId") "Headers should have spanId header."
+            Expect.equal (child |> Trace.parentId) (map |> Map.tryFind "X-B3-ParentSpanId") "Headers should have parentSpanId header."
+
+        testCase "should extract injected trace from headers" <| fun _ ->
+            let span = Trace.Span.start "span"
+            let headers = Http.inject span []
+
+            let extracted = Http.extractFromHeaders headers
+
+            Expect.equal (span |> Trace.context) extracted (sprintf "inject trace (%s) to headers and extract it again to (%s)" (string span) (string extracted))
+
+            let childOfExtracted =
+                "continue"
+                |> Trace.ChildOf.continueOrStart (fun () -> headers |> Http.extractFromHeaders |> Trace.ofContextOption)
+
+            Expect.equal (childOfExtracted |> Trace.parentId) (span |> Trace.spanId) (sprintf "Parent of extracted trace (%s) should original span (%s)" (string childOfExtracted) (string span))
+
+        testCase "should extract injected child trace from headers" <| fun _ ->
+            let span = "main" |> Trace.Span.start
+            let child = "child" |> Trace.ChildOf.start span
+            let headers = Http.inject child []
+
+            let extracted = Http.extractFromHeaders headers
+
+            Expect.equal (child |> Trace.context) extracted (sprintf "inject trace (%s) to headers and extract it again to (%s)" (string child) (string extracted))
+
+            let childOfExtracted =
+                "continue"
+                |> Trace.ChildOf.continueOrStart (fun () -> headers |> Http.extractFromHeaders |> Trace.ofContextOption)
+
+            Expect.equal (childOfExtracted |> Trace.parentId) (child |> Trace.spanId) (sprintf "Parent of extracted trace (%s) should original child span (%s)" (string childOfExtracted) (string child))
+    ]

@@ -4,25 +4,16 @@ module LoggerProvider =
     open System
     open Microsoft.Extensions.Logging
 
-    // todo - dela to tohle, ale nevim, ktera cast - je treba si zkusit vypinat ty features (metody) a uvidime co to presne dela
-
     type TracingLogger(categoryName: string) =
         interface ILogger with
             member __.Log<'TState>(logLevel, eventId, state: 'TState, exn, formatter) =
                 match Trace.Active.current() with
                 | Inactive -> ()
                 | activeTrace ->
+                    let formattedMessage = formatter.Invoke(state, exn)
+
                     activeTrace
-                    |> Trace.addBaggage [
-                        "logging.category", categoryName
-                        "logging.level", string logLevel
-
-                        if eventId.Id > 0 then
-                            "logging.event.id", string eventId.Id
-                            "logging.event.name", string eventId.Name
-
-                        "logging.message", (formatter.Invoke(state, exn))
-                    ]
+                    |> Trace.addEvent $"[{categoryName}][{logLevel}] {formattedMessage}"
                     |> ignore
 
             member __.IsEnabled(logLevel) = logLevel <> LogLevel.None && Tracer.Check.isTracerAvailable()

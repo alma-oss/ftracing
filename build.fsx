@@ -30,7 +30,7 @@ open Fake.Tools.Git
 // --------------------------------------------------------------------------------------------------------
 
 let project = "Tracing"
-let summary = "A library to help with Jaeger tracing."
+let summary = "A library to help with tracing."
 
 let changeLog = "CHANGELOG.md"
 let gitCommit = Information.getCurrentSHA1(".")

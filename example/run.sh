@@ -13,19 +13,16 @@ ENVIRONMENT=dev1-services
 LOG_TO="console"
 VERBOSITY=vvv
 
-# Tracing specific
-export JAEGER_GRPC_TARGET="tracing-grpc.service.$ENVIRONMENT.consul:80"
-export JAEGER_SERVICE_NAME="$DOMAIN-$CONTEXT"
-export JAEGER_TAGS="svc_domain=$DOMAIN,svc_context=$CONTEXT,svc_purpose=$PURPOSE,svc_version=$VERSION"
+###
+### Open Telementry Tracing
+###
+export TRACING_THRIFT_HOST="tracing-thrift.service.$ENVIRONMENT.consul:80"
+export TRACING_SERVICE_NAME="$DOMAIN-$CONTEXT"
+export TRACING_TAGS="svc_domain=$DOMAIN,svc_context=$CONTEXT,svc_purpose=$PURPOSE,svc_version=$VERSION"
+export TRACING_LOG_TO="$LOG_TO"
+export TRACING_LOG_META="$LOGGER_TAGS"
+export TRACING_LOG_LEVEL="$VERBOSITY"
 
-# Tracing common
-export JAEGER_LOG_TO="$LOG_TO"
-export JAEGER_TRACEID_128BIT=1
-export JAEGER_SAMPLER_PARAM=1
-export JAEGER_SAMPLER_TYPE=const
-export JAEGER_SENDER_FACTORY=grpc
-export JAEGER_PROPAGATION=b3
-export JAEGER_LOG_META="$LOGGER_TAGS"
-export JAEGER_LOG_LEVEL="$VERBOSITY"
+export TRACING_EXPORT_CONSOLE="on"
 
 dotnet watch run
