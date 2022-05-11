@@ -3,7 +3,7 @@
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
 
-## 6.0.0-RC1 - 2022-05-11
+## 6.0.0 - 2022-05-11
 - [**BC**] Use `OpenTelemetry` as a base library
 - [**BC**] Change environment variables
 - [**BC**] Rename `Trace.addBaggage` to `Trace.addEvent`
