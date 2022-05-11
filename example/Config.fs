@@ -4,11 +4,12 @@ namespace Lmc.Tracing.Example
 module ExampleSettings =
     [<RequireQualifiedAccess>]
     type Run =
+        | OpenTelemetry
         | KafkaExample
         | AsyncResultExample
         | All
 
-    let run = Run.All
+    let run = Run.OpenTelemetry
 
     /// 5 is maximum
     let numberOfMessages = 2

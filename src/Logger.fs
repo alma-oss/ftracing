@@ -10,17 +10,10 @@ module LoggerProvider =
                 match Trace.Active.current() with
                 | Inactive -> ()
                 | activeTrace ->
+                    let formattedMessage = formatter.Invoke(state, exn)
+
                     activeTrace
-                    |> Trace.addBaggage [
-                        "logging.category", categoryName
-                        "logging.level", string logLevel
-
-                        if eventId.Id > 0 then
-                            "logging.event.id", string eventId.Id
-                            "logging.event.name", string eventId.Name
-
-                        "logging.message", (formatter.Invoke(state, exn))
-                    ]
+                    |> Trace.addEvent $"[{categoryName}][{logLevel}] {formattedMessage}"
                     |> ignore
 
             member __.IsEnabled(logLevel) = logLevel <> LogLevel.None && Tracer.Check.isTracerAvailable()

@@ -11,24 +11,40 @@ let main argv =
     printfn "Tracing Example"
     printfn "==============="
 
-    let exampleTrace = Trace.Active.start "Example trace"
-
     use loggerFactory = LoggerFactory.create [
         UseLevel LogLevel.Trace
         LogToConsole
     ]
 
-    let logger = loggerFactory.CreateLogger("Example - trace")
-    logger.LogInformation("Trace {trace}", exampleTrace |> Trace.id)
+    let initTrace () =
+        let exampleTrace = Trace.Active.start "Example trace"
+
+        let logger = loggerFactory.CreateLogger("Example - trace")
+        logger.LogInformation("Trace {trace}", exampleTrace |> Trace.id)
+
+        exampleTrace
 
     match ExampleSettings.run with
-    | ExampleSettings.Run.KafkaExample -> KafkaExample.run loggerFactory exampleTrace
-    | ExampleSettings.Run.AsyncResultExample -> AsyncResultExample.run loggerFactory exampleTrace
+    | ExampleSettings.Run.OpenTelemetry ->
+        OpenTelemetryExample.run loggerFactory
+
+    | ExampleSettings.Run.KafkaExample ->
+        let exampleTrace = initTrace()
+        KafkaExample.run loggerFactory exampleTrace
+        exampleTrace |> Trace.finish
+
+    | ExampleSettings.Run.AsyncResultExample ->
+        let exampleTrace = initTrace()
+        AsyncResultExample.run loggerFactory exampleTrace
+        exampleTrace |> Trace.finish
+
     | ExampleSettings.Run.All ->
+        let exampleTrace = initTrace ()
         KafkaExample.run loggerFactory exampleTrace
         AsyncResultExample.run loggerFactory exampleTrace
+        exampleTrace |> Trace.finish
 
-    exampleTrace |> Trace.finish
+    OpenTelemetry.Tracer.finishTracerProvider()
 
     printfn "waiting ..."
     System.Threading.Thread.Sleep 2000

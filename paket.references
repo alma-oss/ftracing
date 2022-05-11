@@ -1,8 +1,12 @@
 FSharp.Core
 FSharp.Data
-Jaeger
-Jaeger.Senders.Grpc
+Microsoft.AspNetCore.Http
 Microsoft.Extensions.Logging
+OpenTelemetry
+OpenTelemetry.Api
+OpenTelemetry.Exporter.Console
+OpenTelemetry.Exporter.Jaeger
+OpenTelemetry.Instrumentation.Http
 Lmc.ErrorHandling
 Lmc.Logging
 Lmc.State

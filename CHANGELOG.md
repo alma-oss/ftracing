@@ -2,6 +2,11 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+- [**BC**] Use `OpenTelemetry` as a base library
+- [**BC**] Change environment variables
+- [**BC**] Rename `Trace.addBaggage` to `Trace.addEvent`
+- Allow custom equality, comparability of Trace types
+- Allow Trace types to cast to string
 
 ## 5.0.0 - 2022-02-28
 - [**BC**] Add previously removed `LiveTrace.Scope` to fix a problem with unfinished scope
