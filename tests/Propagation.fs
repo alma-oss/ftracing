@@ -38,6 +38,24 @@ let checkTracePropagation =
             Expect.equal (child |> Trace.spanId) (map |> Map.tryFind "X-B3-SpanId") "Headers should have spanId header."
             Expect.equal (child |> Trace.parentId) (map |> Map.tryFind "X-B3-ParentSpanId") "Headers should have parentSpanId header."
 
+        testCase "should extract inactive trace from empty headers" <| fun _ ->
+            let span = Inactive
+            Expect.isNone (span |> Trace.context) "Inactive span should not have any context"
+
+            let headers = Http.inject span []
+
+            let extracted = Http.extractFromHeaders headers
+
+            Expect.equal (span |> Trace.context) extracted (sprintf "inject inactive trace (%s) to headers and extract it again to (%s)" (string span) (string extracted))
+
+            let childOfExtracted =
+                "continue"
+                |> Trace.ChildOf.continueOrStart (fun () -> headers |> Http.extractFromHeaders |> Trace.ofContextOption)
+
+            Expect.isSome (childOfExtracted |> Trace.spanId) "Extracted span should have span id"
+            Expect.isNone (childOfExtracted |> Trace.parentId) "Extracted span should not have parent span id"
+            Expect.equal (childOfExtracted |> Trace.parentId) (span |> Trace.spanId) (sprintf "Parent of extracted trace (%s) should original span (%s)" (string childOfExtracted) (string span))
+
         testCase "should extract injected trace from headers" <| fun _ ->
             let span = Trace.Span.start "span"
             let headers = Http.inject span []

@@ -150,6 +150,30 @@ module Tracer =
         | _ ->
             logger.LogWarning("There is no global tracer provider.")
 
+[<RequireQualifiedAccess>]
+module TelemetrySpanContext =
+    let (|IsAlive|_|): SpanContext -> SpanContext option = fun ctx ->
+        if ctx.IsValid then Some (IsAlive ctx)
+        else None
+
+[<RequireQualifiedAccess>]
+module TelemetrySpan =
+    /// OpenTelemetry span is created as Noop when it is inactive
+    /// It may be just zeros - 000
+    /// It may contain a parent span - 000.000
+    /// NOTE: number of zeros is not always the same
+    let private isNoop (id: string) =
+        id.Replace(".", "") |> Seq.forall ((=) '0')
+
+    let (|IsAlive|_|): TelemetrySpan -> TelemetrySpan option = fun span ->
+        match span.Context with
+        | TelemetrySpanContext.IsAlive _ -> Some (IsAlive span)
+        | _ -> None
+
+    let (|IsAliveChild|_|): TelemetrySpan -> TelemetrySpan option = function
+        | IsAlive span when (string span.ParentSpanId) |> isNoop |> not -> Some (IsAliveChild span)
+        | _ -> None
+
 [<CustomEquality; NoComparison>]
 type TraceContext =
     | TraceContext of SpanContext
@@ -229,8 +253,7 @@ type Trace =
 
     member internal this.ParentId() =
         match this with
-        | Live (Span single) when (string single.ParentSpanId).Replace("0", "") = "" -> None
-        | Live (Span child) -> Some child.ParentSpanId
+        | Live (Span (TelemetrySpan.IsAliveChild child)) -> Some child.ParentSpanId
         | _ -> None
 
     member private this.Value () =
@@ -390,8 +413,8 @@ module Trace =
     [<RequireQualifiedAccess>]
     module Active =
         let private (|NoopSpan|_|): TelemetrySpan -> _ = function
-            | span when (TraceContext span.Context |> TraceContext.id).Replace("0", "") = "." -> Some NoopSpan
-            | _ -> None
+            | TelemetrySpan.IsAlive _span -> None
+            | _ -> Some NoopSpan
 
         let private currentIn () =
             use factory = Tracer.loggerFactory()
