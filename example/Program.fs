@@ -44,7 +44,7 @@ let main argv =
         AsyncResultExample.run loggerFactory exampleTrace
         exampleTrace |> Trace.finish
 
-    OpenTelemetry.Tracer.finishTracerProvider()
+    Tracer.finishTracerProvider()
 
     printfn "waiting ..."
     System.Threading.Thread.Sleep 2000

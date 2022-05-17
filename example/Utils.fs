@@ -32,58 +32,26 @@ module ExampleUtils =
     module Dice =
         let roll () = Random().Next(0, 6)
 
-    [<RequireQualifiedAccess>]
     /// This is a kafka library in real-life applications
+    [<RequireQualifiedAccess>]
     module Stream =
         open System.Collections.Concurrent
-        open OpenTracing.Propagation
+        open Lmc.Tracing.Extension
 
         type private RawMessage = {
             Message: string
             Headers: Map<string, string>
         }
 
-        [<AutoOpen>]
-        module private Utils =
-            open System.Collections.Generic
-
-            type Headers = Dictionary<string, string>
-            type IHeaders = IDictionary<string, string>
-
-            type HeaderSeq = Map<string, string>
-
-            let headersToDictionary (headerList: HeaderSeq): IHeaders =
-                headerList
-                |> Map.toSeq
-                |> Seq.fold
-                    (fun (headers: Headers) (key, value) ->
-                        headers.Add(key, value)
-                        headers
-                    )
-                    (Headers())
-                :> IHeaders
-
         let private inject trace headers =
-            match trace |> Trace.context with
-            | Some (TraceContext context) ->
-                let headersDict = headers |> headersToDictionary
-                let kafkaHeadersCarrier = TextMapInjectAdapter(headersDict) :> ITextMap
-
-                Tracer.tracer().Inject(context, BuiltinFormats.HttpHeaders, kafkaHeadersCarrier)
-
-                headersDict
-                |> Seq.map (fun kv -> kv.Key, kv.Value)
-                |> Seq.toList
-                |> Map.ofSeq
-
-            | _ -> headers
+            match trace with
+            | Inactive -> headers
+            | _ -> headers |> Map.toList |> Http.inject trace |> Map.ofList
 
         let private extract (headers: Map<string, string>) () =
-            let httpHeadersCarrier = TextMapExtractAdapter(headers |> headersToDictionary) :> ITextMap
-
-            match Tracer.tracer().Extract(BuiltinFormats.HttpHeaders, httpHeadersCarrier) with
-            | null -> None
-            | context -> Some (TraceContext context)
+            match headers |> Map.toList with
+            | [] -> None
+            | headers -> headers |> Http.extractFromHeaders
 
         [<RequireQualifiedAccess>]
         module private RawMessage =

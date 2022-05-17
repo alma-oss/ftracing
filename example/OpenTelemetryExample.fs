@@ -42,7 +42,7 @@ module OpenTelemetryExample =
 
         use exampleSpan = Trace.Active.start "example_span"
         exampleSpan
-        |> Trace.addBaggage "Test event"
+        |> Trace.addEvent "Test event"
         |> Trace.addTags [ "span-tag", "tag-value" ]
         |> ignore
 
