@@ -50,7 +50,7 @@ let checkTracePropagation =
 
             let childOfExtracted =
                 "continue"
-                |> Trace.ChildOf.continueOrStart (fun () -> headers |> Http.extractFromHeaders |> Trace.ofContextOption)
+                |> Trace.ChildOf.continueOrStart (fun () -> extracted |> Trace.ofContextOption)
 
             Expect.isSome (childOfExtracted |> Trace.spanId) "Extracted span should have span id"
             Expect.isNone (childOfExtracted |> Trace.parentId) "Extracted span should not have parent span id"
@@ -66,7 +66,7 @@ let checkTracePropagation =
 
             let childOfExtracted =
                 "continue"
-                |> Trace.ChildOf.continueOrStart (fun () -> headers |> Http.extractFromHeaders |> Trace.ofContextOption)
+                |> Trace.ChildOf.continueOrStart (fun () -> extracted |> Trace.ofContextOption)
 
             Expect.equal (childOfExtracted |> Trace.parentId) (span |> Trace.spanId) (sprintf "Parent of extracted trace (%s) should original span (%s)" (string childOfExtracted) (string span))
 
@@ -81,7 +81,7 @@ let checkTracePropagation =
 
             let childOfExtracted =
                 "continue"
-                |> Trace.ChildOf.continueOrStart (fun () -> headers |> Http.extractFromHeaders |> Trace.ofContextOption)
+                |> Trace.ChildOf.continueOrStart (fun () -> extracted |> Trace.ofContextOption)
 
             Expect.equal (childOfExtracted |> Trace.parentId) (child |> Trace.spanId) (sprintf "Parent of extracted trace (%s) should original child span (%s)" (string childOfExtracted) (string child))
     ]
