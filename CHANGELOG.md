@@ -2,6 +2,8 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+
+## 6.1.0 - 2022-05-17
 - Fix extraction of Inactive trace
 - Add `TelemetrySpan` and `TelemetrySpanContext` modules with `IsAlive` active patterns
 
