@@ -2,6 +2,8 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+- Fix injecting trace headers to headers with existing keys
+- Improve logging spans
 
 ## 6.1.0 - 2022-05-17
 - Fix extraction of Inactive trace
