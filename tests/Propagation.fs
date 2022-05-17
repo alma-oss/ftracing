@@ -38,6 +38,26 @@ let checkTracePropagation =
             Expect.equal (child |> Trace.spanId) (map |> Map.tryFind "X-B3-SpanId") "Headers should have spanId header."
             Expect.equal (child |> Trace.parentId) (map |> Map.tryFind "X-B3-ParentSpanId") "Headers should have parentSpanId header."
 
+        testCase "should inject trace to headers with old trace information" <| fun _ ->
+            let old = "old" |> Trace.Span.start
+            let headers = Http.inject old []
+
+            let span = "main" |> Trace.Span.start
+            let child = "child" |> Trace.ChildOf.start span
+
+            let headers = Http.inject child headers
+
+            Expect.isNonEmpty headers "Injected headers should not be empty"
+            Expect.hasLength headers 4 "There should be 4 injected headers"
+
+            headers
+            |> List.iter (fun (key, _) -> Expect.stringStarts key "X-B3-" "Injected header should start with X-B3-")
+
+            let map = headers |> Map.ofList
+            Expect.equal (child |> Trace.traceId) (map |> Map.tryFind "X-B3-TraceId") "Headers should have traceId header."
+            Expect.equal (child |> Trace.spanId) (map |> Map.tryFind "X-B3-SpanId") "Headers should have spanId header."
+            Expect.equal (child |> Trace.parentId) (map |> Map.tryFind "X-B3-ParentSpanId") "Headers should have parentSpanId header."
+
         testCase "should extract inactive trace from empty headers" <| fun _ ->
             let span = Inactive
             Expect.isNone (span |> Trace.context) "Inactive span should not have any context"

@@ -71,6 +71,7 @@ module Http =
                 PropagationContext(context, Baggage.Current),
                 headersDict,
                 System.Action<IHeaders, string, string> (fun props key value ->
+                    if props.ContainsKey key then props.Remove key |> ignore
                     props.Add(key, value)
                 )
             )

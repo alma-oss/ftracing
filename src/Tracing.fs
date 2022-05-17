@@ -152,9 +152,12 @@ module Tracer =
 
 [<RequireQualifiedAccess>]
 module TelemetrySpanContext =
-    let (|IsAlive|_|): SpanContext -> SpanContext option = fun ctx ->
-        if ctx.IsValid then Some (IsAlive ctx)
+    let (|IsAlive|_|): SpanContext -> SpanContext option = fun context ->
+        if context.IsValid then Some (IsAlive context)
         else None
+
+    let internal format (context: SpanContext) =
+        $"{context.TraceId}.{context.SpanId}"
 
 [<RequireQualifiedAccess>]
 module TelemetrySpan =
@@ -174,13 +177,22 @@ module TelemetrySpan =
         | IsAlive span when (string span.ParentSpanId) |> isNoop |> not -> Some (IsAliveChild span)
         | _ -> None
 
+    let internal format (span: TelemetrySpan) =
+        let context = span.Context
+        let parentSuffix =
+            match span with
+            | IsAliveChild child -> $".{child.ParentSpanId}"
+            | _ -> ""
+
+        $"{context |> TelemetrySpanContext.format}{parentSuffix}"
+
 [<CustomEquality; NoComparison>]
 type TraceContext =
     | TraceContext of SpanContext
 
     member internal this.Value () =
         match this with
-        | TraceContext context -> $"{context.TraceId}.{context.SpanId}"
+        | TraceContext context -> context |> TelemetrySpanContext.format
 
     override this.GetHashCode() =
         this.Value() |> hash
@@ -209,7 +221,7 @@ type LiveTrace =
 
         match this with
         | Span span ->
-            logger.LogTrace("{type}.Finish({span})", "Span", span)
+            logger.LogTrace("{type}.Finish({span})", "Span", span |> TelemetrySpan.format)
             span.End()
 
     member this.Context () =
@@ -273,14 +285,7 @@ type Trace =
 
     override this.ToString() =
         match this with
-        | Live (Span span) ->
-            let context = span.Context
-            let parentSuffix =
-                this.ParentId()
-                |> Option.map (string >> (+) ".")
-                |> Option.defaultValue ""
-
-            sprintf "Trace.Live (%s.%s%s)" (string context.TraceId) (string context.SpanId) parentSuffix
+        | Live (Span span) -> sprintf "Trace.Live (%s)" (span |> TelemetrySpan.format)
         | Context context -> sprintf "Trace.Context (%s)" (context.Value())
         | Inactive -> "Trace.Inactive"
 
@@ -425,7 +430,7 @@ module Trace =
                 logger.LogTrace("No Active Trace")
                 Inactive
             | span ->
-                logger.LogTrace("Active Trace: {traceId} with Span: {spanId}", span.Context.TraceId, span.Context.SpanId)
+                logger.LogTrace("Active Trace: {traceId} with Span: {spanId}", string span.Context.TraceId, string span.Context.SpanId)
                 Live (Span span)
 
         let current = currentIn
