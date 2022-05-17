@@ -53,9 +53,9 @@ module Http =
 
         let ctx = parentContext.ActivityContext
 
-        Trace.SpanContext(&ctx)
-        |> TraceContext
-        |> Some
+        match Trace.SpanContext(&ctx) with
+        | TelemetrySpanContext.IsAlive ctx -> Some (TraceContext ctx)
+        | _ -> None
 
     let extractFromContext (httpContext: HttpContext) =
         httpContext
