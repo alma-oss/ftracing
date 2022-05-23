@@ -104,4 +104,52 @@ let checkTracePropagation =
                 |> Trace.ChildOf.continueOrStart (fun () -> extracted |> Trace.ofContextOption)
 
             Expect.equal (childOfExtracted |> Trace.parentId) (child |> Trace.spanId) (sprintf "Parent of extracted trace (%s) should original child span (%s)" (string childOfExtracted) (string child))
+
+        testCase "should extract trace from headers" <| fun _ ->
+            let headers = [
+                "X-B3-TraceId", "7fd53ebb12e81ce2b66bec6bfc47b29b"
+                "X-B3-SpanId", "71a6d5979a7a70a7"
+                "X-B3-Sampled", "1"
+                "X-B3-ParentSpanId", "cd8baa01e6cf0597"
+            ]
+
+            let extracted = Http.extractFromHeaders headers
+
+            Expect.equal
+                (extracted |> Option.map TraceContext.id)
+                (Some "7fd53ebb12e81ce2b66bec6bfc47b29b.71a6d5979a7a70a7")
+                (sprintf "extract headers (%s)" (string extracted))
+
+            let childOfExtracted =
+                "continue"
+                |> Trace.ChildOf.continueOrStartActive (fun () -> extracted |> Trace.ofContextOption)
+
+            Expect.equal
+                (childOfExtracted |> Trace.parentId)
+                (Some "71a6d5979a7a70a7")
+                (sprintf "Parent of extracted trace (%s) should original span" (string childOfExtracted))
+
+        testCase "should extract trace from headers (lowercase)" <| fun _ ->
+            let headers = [
+                "x-b3-traceid", "7fd53ebb12e81ce2b66bec6bfc47b29b"
+                "x-b3-spanid", "71a6d5979a7a70a7"
+                "x-b3-sampled", "1"
+                "x-b3-parentspanid", "cd8baa01e6cf0597"
+            ]
+
+            let extracted = Http.extractFromHeaders headers
+
+            Expect.equal
+                (extracted |> Option.map TraceContext.id)
+                (Some "7fd53ebb12e81ce2b66bec6bfc47b29b.71a6d5979a7a70a7")
+                (sprintf "extract headers (%s)" (string extracted))
+
+            let childOfExtracted =
+                "continue"
+                |> Trace.ChildOf.continueOrStartActive (fun () -> extracted |> Trace.ofContextOption)
+
+            Expect.equal
+                (childOfExtracted |> Trace.parentId)
+                (Some "71a6d5979a7a70a7")
+                (sprintf "Parent of extracted trace (%s) should original span" (string childOfExtracted))
     ]

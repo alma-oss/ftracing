@@ -2,6 +2,7 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+- Extract trace from http headers in case-insensitive
 
 ## 6.3.0 - 2022-05-23
 - Start reference span from alive spans only
