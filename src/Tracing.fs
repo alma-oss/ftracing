@@ -453,12 +453,12 @@ module Trace =
 
         let start (reference: BuildReference) (parentTrace: Trace) (name: string): Trace =
             match name |> Build.reference (reference parentTrace) with
-            | Some span -> span |> Span |> Live
+            | Some (TelemetrySpan.IsAlive span) -> span |> Span |> Live
             | _ -> Inactive
 
         let startAt (reference: BuildReference) (startTime: DateTimeOffset) (parentTrace: Trace) (name: string): Trace =
             match name |> Build.referenceAt (reference parentTrace) startTime with
-            | Some span -> span |> Span |> Live
+            | Some (TelemetrySpan.IsAlive span) -> span |> Span |> Live
             | _ -> Inactive
 
         let startFromActive (reference: BuildReference) (name: string): Trace =
@@ -466,12 +466,12 @@ module Trace =
 
         let startActive (reference: BuildReference) (parentTrace: Trace) (name: string): Trace =
             match name |> Build.activeReference (reference parentTrace) with
-            | Some activeSpan -> activeSpan |> Span |> Live
+            | Some (TelemetrySpan.IsAlive activeSpan) -> activeSpan |> Span |> Live
             | _ -> Inactive
 
         let startActiveAt (reference: BuildReference) (startTime: DateTimeOffset) (parentTrace: Trace) (name: string) : Trace=
             match name |> Build.activeReferenceAt (reference parentTrace) startTime with
-            | Some activeSpan -> activeSpan |> Span |> Live
+            | Some (TelemetrySpan.IsAlive activeSpan) -> activeSpan |> Span |> Live
             | _ -> Inactive
 
         let startActiveFromActive (reference: BuildReference) (name: string) : Trace=
