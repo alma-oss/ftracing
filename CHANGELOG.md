@@ -2,6 +2,7 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+- Start reference span from alive spans only
 
 ## 6.2.0 - 2022-05-17
 - Fix injecting trace headers to headers with existing keys
