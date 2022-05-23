@@ -45,7 +45,14 @@ module Http =
                 System.Func<IHeaders, string, IEnumerable<string>> (fun props key ->
                     match props.TryGetValue(key) with
                     | true, value -> [ value ]
-                    | _ -> []
+                    | _ ->
+                        let keyLower = key.ToLowerInvariant()
+
+                        props
+                        |> Seq.tryFind (fun kv -> kv.Key.ToLowerInvariant() = keyLower)
+                        |> Option.map (fun kv -> kv.Value)
+                        |> Option.toList
+                        :> IEnumerable<string>
                 )
             )
 
