@@ -2,6 +2,8 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+
+## 6.5.0 - 2022-06-02
 - Add custom identifier as a tag to custom scoped trace
 
 ## 6.4.0 - 2022-05-23
