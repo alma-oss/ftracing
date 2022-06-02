@@ -11,15 +11,20 @@ module CustomTracingScope =
 
     [<RequireQualifiedAccess>]
     module TracingState =
+        let private addTag (TraceIdentifier identifier) =
+            Trace.addTags [ "custom.identifier", identifier ]
+
         let storeActiveTrace identifier trace =
             state
-            |> State.set (Key identifier) trace
+            |> State.set (Key identifier)
+                (trace |> addTag identifier)
 
         let loadActiveTrace identifier =
             state
             |> State.tryFind (Key identifier)
             |> Option.defaultValue Inactive
             |> Trace.Active.activate
+            |> addTag identifier
 
         let clearActiveTrace identifier =
             state

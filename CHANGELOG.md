@@ -2,6 +2,7 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+- Add custom identifier as a tag to custom scoped trace
 
 ## 6.4.0 - 2022-05-23
 - Extract trace from http headers in case-insensitive
