@@ -73,6 +73,8 @@ module Tracer =
                         |> Seq.map (fun (k, v) -> KeyValuePair (k, v :> obj))
                     | _ -> Seq.empty
 
+                let sampler = AlwaysOnSampler()
+
                 let provider =
                     Sdk.CreateTracerProviderBuilder()
                         .AddSource(serviceName)
@@ -103,7 +105,7 @@ module Tracer =
 
                             opt |> logConf "app"
                         )
-                        .SetSampler(AlwaysOnSampler())
+                        .SetSampler(sampler)
 
                 let provider =
                     match getEnvVarValue "TRACING_EXPORT_CONSOLE" |> Result.map(fun s -> s.ToLowerInvariant()) with
@@ -347,14 +349,28 @@ module Trace =
         // links            : IEnumerable<Link> *
         // startTime        : DateTimeOffset
 
+        /// [MemoryLeakContextProblem]
+        /// This function creates a static context with random ids, instead of doing it in a tracer.
+        /// The reason for it is bypass a memory leak when doing it in the tracer itself.
+        ///
+        /// Curently I'm not entirely sure why is that, since I debugged it quite some time ago.
+        let private ctx (): SpanContext =
+            let tId = ActivityTraceId.CreateRandom()
+            let sId = ActivitySpanId.CreateRandom()
+            SpanContext(&tId, &sId, ActivityTraceFlags.Recorded, false)
+
         let span (name: string) =
-            Tracer.tracer().StartSpan(name)
+            let ctx = ctx ()
+            Tracer.tracer().StartSpan(name, parentContext = &ctx)
 
         let spanAt (startTime: DateTimeOffset) (name: string) =
-            Tracer.tracer().StartSpan(name = name, startTime = startTime)
+            let ctx = ctx ()
+            Tracer.tracer().StartSpan(name = name, startTime = startTime, parentContext = &ctx)
 
         let startActive name =
-            Tracer.tracer().StartActiveSpan(name)
+            let ctx = ctx ()
+            let span = Tracer.tracer().StartActiveSpan(name, parentContext = &ctx)
+            Tracer.WithSpan(span)
 
         [<RequireQualifiedAccess>]
         module private ChildOf =

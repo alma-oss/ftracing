@@ -7,6 +7,7 @@ OpenTelemetry.Api
 OpenTelemetry.Exporter.Console
 OpenTelemetry.Exporter.Jaeger
 OpenTelemetry.Instrumentation.Http
+OpenTelemetry.Extensions.Propagators
 Lmc.ErrorHandling
 Lmc.Logging
 Lmc.State
