@@ -18,6 +18,7 @@
     <Compile Include="Trace.fs" />
     <Compile Include="ActiveTrace.fs" />
     <Compile Include="Propagation.fs" />
+    <Compile Include="KafkaPropagation.fs" />
     <Compile Include="Tests.fs" />
   </ItemGroup>
 

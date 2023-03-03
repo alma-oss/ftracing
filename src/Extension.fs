@@ -4,6 +4,7 @@ open System.Collections.Generic
 
 open OpenTelemetry
 open OpenTelemetry.Context.Propagation
+open OpenTelemetry.Extensions.Propagators
 
 open Lmc.Tracing
 
@@ -87,6 +88,10 @@ module Http =
             match trace.ParentId() with
             | Some parent when headersDict.ContainsKey "X-B3-ParentSpanId" |> not ->
                 headersDict.Add("X-B3-ParentSpanId", parent.ToHexString())
+
+            | Some parent when headersDict.Remove("X-B3-ParentSpanId") ->
+                headersDict.Add("X-B3-ParentSpanId", parent.ToHexString())
+
             | _ -> ()
 
             headersDict
