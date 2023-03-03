@@ -2,6 +2,8 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+
+# 6.6.0 - 2023-03-03
 - Create a static context for new traces
     - Fix memory leak of the staring trace by pregenerate the context before starting a trace (see: [MemoryLeakContextProblem] in the code)
 
