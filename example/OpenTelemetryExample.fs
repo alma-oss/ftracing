@@ -1,4 +1,4 @@
-namespace Lmc.Tracing.Example
+namespace Alma.Tracing.Example
 
 open System
 open System.Diagnostics
@@ -8,14 +8,14 @@ open Microsoft.Extensions.Logging
 
 [<RequireQualifiedAccess>]
 module OpenTelemetryExample =
-    open Lmc.ErrorHandling
+    open Alma.ErrorHandling
 
     open OpenTelemetry
     open OpenTelemetry.Trace
     open OpenTelemetry.Resources
 
-    open Lmc.Tracing
-    open Lmc.Tracing.LoggerProvider
+    open Alma.Tracing
+    open Alma.Tracing.LoggerProvider
 
     type ErrorMessage = exn
 

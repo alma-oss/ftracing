@@ -1,4 +1,4 @@
-namespace Lmc.Tracing.Example
+namespace Alma.Tracing.Example
 
 [<RequireQualifiedAccess>]
 module ExampleSettings =

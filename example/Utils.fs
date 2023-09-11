@@ -1,8 +1,8 @@
-namespace Lmc.Tracing.Example
+namespace Alma.Tracing.Example
 
 open System
 open Microsoft.Extensions.Logging
-open Lmc.Tracing
+open Alma.Tracing
 
 [<AutoOpen>]
 module ExampleUtils =
@@ -36,7 +36,7 @@ module ExampleUtils =
     [<RequireQualifiedAccess>]
     module Stream =
         open System.Collections.Concurrent
-        open Lmc.Tracing.Extension
+        open Alma.Tracing.Extension
 
         type private RawMessage = {
             Message: string
@@ -134,7 +134,7 @@ module ExampleUtils =
     [<RequireQualifiedAccess>]
     /// This is a kafkaApplication library in the real-life apps
     module Handler =
-        open Lmc.ErrorHandling
+        open Alma.ErrorHandling
 
         let sequence (validations: Validation<'Success, 'Failure> seq): Validation<'Success seq, 'Failure> =
             let (<*>) = Validation.apply

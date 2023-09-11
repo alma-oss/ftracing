@@ -1,8 +1,8 @@
 module KafkaPropagation
 
 open Expecto
-open Lmc.Tracing
-open Lmc.Tracing.Extension
+open Alma.Tracing
+open Alma.Tracing.Extension
 
 [<RequireQualifiedAccess>]
 module internal KafkaTrace =

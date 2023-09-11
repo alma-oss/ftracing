@@ -1,8 +1,8 @@
-namespace Lmc.Tracing.Example
+namespace Alma.Tracing.Example
 
 open Microsoft.Extensions.Logging
-open Lmc.Tracing
-open Lmc.ErrorHandling
+open Alma.Tracing
+open Alma.ErrorHandling
 
 [<RequireQualifiedAccess>]
 module KafkaExample =

@@ -2,9 +2,9 @@
 
 open System
 open Microsoft.Extensions.Logging
-open Lmc.Logging
-open Lmc.Tracing
-open Lmc.Tracing.Example
+open Alma.Logging
+open Alma.Tracing
+open Alma.Tracing.Example
 
 [<EntryPoint>]
 let main argv =

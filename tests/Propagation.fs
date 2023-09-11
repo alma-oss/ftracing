@@ -1,8 +1,8 @@
 module Propagation
 
 open Expecto
-open Lmc.Tracing
-open Lmc.Tracing.Extension
+open Alma.Tracing
+open Alma.Tracing.Extension
 
 let dbg ctx msg = printfn "[%s] %A" ctx msg
 let tid = Trace.id >> Option.defaultValue "-"

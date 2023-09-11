@@ -7,14 +7,20 @@ F-Tracing
 
 Add following into `paket.dependencies`
 ```
-git ssh://git@bitbucket.lmc.cz:7999/archi/nuget-server.git master Packages: /nuget/
+source https://nuget.pkg.github.com/almacareer/index.json username: "%PRIVATE_FEED_USER%" password: "%PRIVATE_FEED_PASS%"
 # LMC Nuget dependencies:
-nuget Lmc.Tracing
+nuget Alma.Tracing
+```
+
+NOTE: For local development, you have to create ENV variables with your github personal access token.
+```sh
+export PRIVATE_FEED_USER='{GITHUB USERNANME}'
+export PRIVATE_FEED_PASS='{TOKEN}'	# with permissions: read:packages
 ```
 
 Add following into `paket.references`
 ```
-Lmc.Tracing
+Alma.Tracing
 ```
 
 ## Configuration
@@ -52,7 +58,7 @@ TRACING_EXPORT_CONSOLE="on"
 
 With explicit finishing
 ```fs
-open Lmc.Tracing
+open Alma.Tracing
 
 module MyApplication =
     let someAction args =
@@ -70,7 +76,7 @@ module MyApplication =
 
 With implicit finishing
 ```fs
-open Lmc.Tracing
+open Alma.Tracing
 
 module MyApplication =
     let someAction args =
@@ -90,7 +96,7 @@ module MyApplication =
 
 ### Use child spans for low-level functions
 ```fs
-open Lmc.Tracing
+open Alma.Tracing
 
 module internal Logic =
     let doSomeWork trace args =
@@ -128,8 +134,8 @@ Main Action
 
 ### Trace received HTTP request with Extension
 ```fs
-open Lmc.Tracing
-open Lmc.Tracing.Extension
+open Alma.Tracing
+open Alma.Tracing.Extension
 
 let entryPoint (ctx: Microsoft.AspNetCore.Http.HttpContext) args =
     use receiveRequestTrace =       // with `use` trace will be finished automatically in the end of the method
@@ -152,10 +158,10 @@ let entryPoint (ctx: Microsoft.AspNetCore.Http.HttpContext) args =
 ```fs
 open FSharp.Data
 open FSharp.Data.HttpRequestHeaders
-open Lmc.ErrorHandling
+open Alma.ErrorHandling
 
-open Lmc.Tracing
-open Lmc.Tracing.Extension
+open Alma.Tracing
+open Alma.Tracing.Extension
 
 let httpRequest url = asyncResult {
     let! rawResponse =
@@ -184,8 +190,8 @@ If you need to persist an Active trace between async threads, you need to store 
 There is a custom tracing scope for this purpose.
 
 ```fs
-open Lmc.Tracing
-open Lmc.Tracing.CustomTracingScope
+open Alma.Tracing
+open Alma.Tracing.CustomTracingScope
 
 let example () =
     let mainTrace = Trace.Active.start "example"   // in this case, you could store an active trace in variable and pass it to asyncs, without using a custom state, but if your asyncs would be different functions etc, it could be easier to ask Tracer for an active trace "globally" instead. But you still need a unique identifier to retrieve a trace you want!
@@ -222,8 +228,8 @@ let example () =
 There is also a shortcut for the above example, if you use a `ScopedTrace` disposable object.
 
 ```fs
-open Lmc.Tracing
-open Lmc.Tracing.CustomTracingScope
+open Alma.Tracing
+open Alma.Tracing.CustomTracingScope
 
 let example () =
     let mainTrace = Trace.Active.start "example"
@@ -257,16 +263,16 @@ let example () =
 ```
 
 ## Tracing log messages
-> It requires `Lmc.Logging` library
+> It requires `Alma.Logging` library
 
 There is a `TracingLogger` which writes log messages into current active trace as baggage.
 
 You can directly pass `TracingProvider` into a logger factory.
 ```fs
 
-open Lmc.Tracing
-open Lmc.Tracing.LoggerProvider
-open Lmc.Logging
+open Alma.Tracing
+open Alma.Tracing.LoggerProvider
+open Alma.Logging
 
 LoggerFactory.create [
     UseProvider (TracingProvider.create())
@@ -281,20 +287,17 @@ LoggerFactory.create [
 1. Increment version in `Tracing.fsproj`
 2. Update `CHANGELOG.md`
 3. Commit new version and tag it
-4. Run `$ fake build target release`
-5. Go to `nuget-server` repo, run `faket build target copyAll` and push new versions
 
 ## Development
 ### Requirements
 - [dotnet core](https://dotnet.microsoft.com/learn/dotnet/hello-world-tutorial)
-- [FAKE](https://fake.build/fake-gettingstarted.html)
 
 ### Build
 ```bash
-./build.sh
+./build.sh build
 ```
 
-### Watch
+### Tests
 ```bash
-./build.sh -t watch
+./build.sh -t tests
 ```

@@ -1,11 +1,11 @@
-namespace Lmc.Tracing
+namespace Alma.Tracing
 
 type TraceIdentifier = TraceIdentifier of string
 
 module CustomTracingScope =
     open System
-    open Lmc.State
-    open Lmc.State.ConcurrentStorage
+    open Alma.State
+    open Alma.State.ConcurrentStorage
 
     let private state: State<TraceIdentifier, Trace> = State.empty()
 
