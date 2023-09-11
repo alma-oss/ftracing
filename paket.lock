@@ -1,45 +1,62 @@
 RESTRICTION: == net7.0
 NUGET
+  remote: https://nuget.pkg.github.com/almacareer/index.json
+    Alma.ErrorHandling (8.0.0)
+      FSharp.Core (>= 7.0.400 < 8.0)
+    Alma.Logging (8.0.0)
+      Alma.ErrorHandling (>= 8.0 < 9.0)
+      Alma.ServiceIdentification (>= 8.0 < 9.0)
+      FSharp.Core (>= 7.0.400 < 8.0)
+      Microsoft.Extensions.Logging (>= 7.0 < 8.0)
+      Microsoft.Extensions.Logging.Console (>= 7.0 < 8.0)
+      Serilog (>= 3.0.1 < 4.0)
+      Serilog.Extensions.Logging (>= 7.0 < 8.0)
+      Serilog.Sinks.Console (>= 4.1 < 5.0)
+    Alma.ServiceIdentification (8.0.0)
+      FSharp.Core (>= 7.0.400 < 8.0)
+    Alma.State (7.0.0)
+      Alma.ErrorHandling (>= 8.0 < 9.0)
+      FSharp.Core (>= 7.0.400 < 8.0)
   remote: https://api.nuget.org/v3/index.json
     Expecto (10.1)
       FSharp.Core (>= 7.0.200)
       Mono.Cecil (>= 0.11.4 < 1.0)
     FSharp.Core (7.0.400)
-    FSharp.Data (6.2)
+    FSharp.Data (6.3)
       FSharp.Core (>= 5.0.1)
-      FSharp.Data.Csv.Core (>= 6.2)
-      FSharp.Data.Html.Core (>= 6.2)
-      FSharp.Data.Http (>= 6.2)
-      FSharp.Data.Json.Core (>= 6.2)
-      FSharp.Data.Runtime.Utilities (>= 6.2)
-      FSharp.Data.WorldBank.Core (>= 6.2)
-      FSharp.Data.Xml.Core (>= 6.2)
-    FSharp.Data.Csv.Core (6.2)
+      FSharp.Data.Csv.Core (>= 6.3)
+      FSharp.Data.Html.Core (>= 6.3)
+      FSharp.Data.Http (>= 6.3)
+      FSharp.Data.Json.Core (>= 6.3)
+      FSharp.Data.Runtime.Utilities (>= 6.3)
+      FSharp.Data.WorldBank.Core (>= 6.3)
+      FSharp.Data.Xml.Core (>= 6.3)
+    FSharp.Data.Csv.Core (6.3)
       FSharp.Core (>= 5.0.1)
-      FSharp.Data.Runtime.Utilities (>= 6.2)
-    FSharp.Data.Html.Core (6.2)
+      FSharp.Data.Runtime.Utilities (>= 6.3)
+    FSharp.Data.Html.Core (6.3)
       FSharp.Core (>= 5.0.1)
-      FSharp.Data.Csv.Core (>= 6.2)
-      FSharp.Data.Runtime.Utilities (>= 6.2)
-    FSharp.Data.Http (6.2)
+      FSharp.Data.Csv.Core (>= 6.3)
+      FSharp.Data.Runtime.Utilities (>= 6.3)
+    FSharp.Data.Http (6.3)
       FSharp.Core (>= 5.0.1)
-    FSharp.Data.Json.Core (6.2)
+    FSharp.Data.Json.Core (6.3)
       FSharp.Core (>= 5.0.1)
-      FSharp.Data.Http (>= 6.2)
-      FSharp.Data.Runtime.Utilities (>= 6.2)
-    FSharp.Data.Runtime.Utilities (6.2)
+      FSharp.Data.Http (>= 6.3)
+      FSharp.Data.Runtime.Utilities (>= 6.3)
+    FSharp.Data.Runtime.Utilities (6.3)
       FSharp.Core (>= 5.0.1)
-      FSharp.Data.Http (>= 6.2)
-    FSharp.Data.WorldBank.Core (6.2)
+      FSharp.Data.Http (>= 6.3)
+    FSharp.Data.WorldBank.Core (6.3)
       FSharp.Core (>= 5.0.1)
-      FSharp.Data.Http (>= 6.2)
-      FSharp.Data.Json.Core (>= 6.2)
-      FSharp.Data.Runtime.Utilities (>= 6.2)
-    FSharp.Data.Xml.Core (6.2)
+      FSharp.Data.Http (>= 6.3)
+      FSharp.Data.Json.Core (>= 6.3)
+      FSharp.Data.Runtime.Utilities (>= 6.3)
+    FSharp.Data.Xml.Core (6.3)
       FSharp.Core (>= 5.0.1)
-      FSharp.Data.Http (>= 6.2)
-      FSharp.Data.Json.Core (>= 6.2)
-      FSharp.Data.Runtime.Utilities (>= 6.2)
+      FSharp.Data.Http (>= 6.3)
+      FSharp.Data.Json.Core (>= 6.3)
+      FSharp.Data.Runtime.Utilities (>= 6.3)
     Microsoft.AspNetCore.Http (2.2.2)
       Microsoft.AspNetCore.Http.Abstractions (>= 2.2)
       Microsoft.AspNetCore.WebUtilities (>= 2.2)
@@ -102,23 +119,23 @@ NUGET
       Microsoft.Extensions.Primitives (>= 2.2)
       System.Buffers (>= 4.5)
     Mono.Cecil (0.11.5)
-    OpenTelemetry (1.5.1)
+    OpenTelemetry (1.6)
       Microsoft.Extensions.Logging.Configuration (>= 3.1)
-      OpenTelemetry.Api.ProviderBuilderExtensions (>= 1.5.1)
-    OpenTelemetry.Api (1.5.1)
-      System.Diagnostics.DiagnosticSource (>= 7.0)
-    OpenTelemetry.Api.ProviderBuilderExtensions (1.5.1)
+      OpenTelemetry.Api.ProviderBuilderExtensions (>= 1.6)
+    OpenTelemetry.Api (1.6)
+      System.Diagnostics.DiagnosticSource (>= 7.0.2)
+    OpenTelemetry.Api.ProviderBuilderExtensions (1.6)
       Microsoft.Extensions.DependencyInjection.Abstractions (>= 3.1)
-      OpenTelemetry.Api (>= 1.5.1)
-    OpenTelemetry.Exporter.Console (1.5.1)
-      OpenTelemetry (>= 1.5.1)
+      OpenTelemetry.Api (>= 1.6)
+    OpenTelemetry.Exporter.Console (1.6)
+      OpenTelemetry (>= 1.6)
       System.Text.Encodings.Web (>= 4.7.2)
       System.Text.Json (>= 4.7.2)
     OpenTelemetry.Exporter.Jaeger (1.5.1)
       OpenTelemetry (>= 1.5.1)
       System.Threading.Tasks.Extensions (>= 4.5.4)
-    OpenTelemetry.Extensions.Propagators (1.5.1)
-      OpenTelemetry.Api (>= 1.5.1)
+    OpenTelemetry.Extensions.Propagators (1.6)
+      OpenTelemetry.Api (>= 1.6)
     OpenTelemetry.Instrumentation.Http (1.5.1-beta.1)
       OpenTelemetry (>= 1.5.1)
     Serilog (3.0.1)
@@ -139,27 +156,7 @@ NUGET
       Expecto (>= 10.0 < 11.0)
       FSharp.Core (>= 7.0.200)
       System.Collections.Immutable (>= 6.0)
-  remote: paket-files/git_bitbucket.lmc.cz7999/archi/nuget-server/nuget
-    Lmc.ErrorHandling (7.0.0)
-      FSharp.Core (>= 7.0.400 < 8.0)
-    Lmc.Logging (7.1.0)
-      FSharp.Core (>= 7.0.400 < 8.0)
-      Lmc.ErrorHandling (>= 7.0 < 8.0)
-      Lmc.ServiceIdentification (>= 7.0 < 8.0)
-      Microsoft.Extensions.Logging (>= 7.0 < 8.0)
-      Microsoft.Extensions.Logging.Console (>= 7.0 < 8.0)
-      Serilog (>= 3.0.1 < 4.0)
-      Serilog.Extensions.Logging (>= 7.0 < 8.0)
-      Serilog.Sinks.Console (>= 4.1 < 5.0)
-    Lmc.ServiceIdentification (7.0.0)
-      FSharp.Core (>= 7.0.300 < 8.0)
-    Lmc.State (6.0.0)
-      FSharp.Core (>= 7.0.400 < 8.0)
-      Lmc.ErrorHandling (>= 7.0 < 8.0)
-GIT
-  remote: ssh://git@bitbucket.lmc.cz:7999/archi/nuget-server.git
-     (179e4cdf6f263f56240f488faa17dce182936d96)
-      path: /nuget/
+
 GROUP Build
 STORAGE: NONE
 NUGET
@@ -281,17 +278,17 @@ NUGET
       FSharp.Core (>= 4.7.2) - restriction: >= netstandard2.0
       System.Reactive (>= 5.0 < 6.0) - restriction: >= netstandard2.0
     FSharp.Core (7.0.400) - restriction: >= netstandard2.0
-    Microsoft.Build.Framework (17.7) - restriction: >= netstandard2.0
+    Microsoft.Build.Framework (17.7.2) - restriction: >= netstandard2.0
       Microsoft.VisualStudio.Setup.Configuration.Interop (>= 3.2.2146) - restriction: >= net472
       Microsoft.Win32.Registry (>= 5.0) - restriction: && (< net472) (< net7.0) (>= netstandard2.0)
       System.Memory (>= 4.5.5) - restriction: && (< net472) (< net7.0) (>= netstandard2.0)
       System.Runtime.CompilerServices.Unsafe (>= 6.0) - restriction: || (>= net472) (&& (< net7.0) (>= netstandard2.0))
       System.Security.Permissions (>= 7.0) - restriction: || (&& (< net472) (>= netstandard2.0)) (>= net7.0)
       System.Security.Principal.Windows (>= 5.0) - restriction: && (< net472) (< net7.0) (>= netstandard2.0)
-    Microsoft.Build.Utilities.Core (17.7) - restriction: >= netstandard2.0
-      Microsoft.Build.Framework (>= 17.7) - restriction: >= netstandard2.0
+    Microsoft.Build.Utilities.Core (17.7.2) - restriction: >= netstandard2.0
+      Microsoft.Build.Framework (>= 17.7.2) - restriction: >= netstandard2.0
       Microsoft.IO.Redist (>= 6.0) - restriction: >= net472
-      Microsoft.NET.StringTools (>= 17.7) - restriction: >= netstandard2.0
+      Microsoft.NET.StringTools (>= 17.7.2) - restriction: >= netstandard2.0
       Microsoft.VisualStudio.Setup.Configuration.Interop (>= 3.2.2146) - restriction: || (>= net472) (>= net7.0)
       Microsoft.Win32.Registry (>= 5.0) - restriction: && (< net472) (< net7.0) (>= netstandard2.0)
       System.Collections.Immutable (>= 7.0) - restriction: >= netstandard2.0
@@ -304,12 +301,12 @@ NUGET
     Microsoft.IO.Redist (6.0) - restriction: >= net472
       System.Buffers (>= 4.5.1) - restriction: >= net472
       System.Memory (>= 4.5.4) - restriction: >= net472
-    Microsoft.NET.StringTools (17.7) - restriction: >= netstandard2.0
+    Microsoft.NET.StringTools (17.7.2) - restriction: >= netstandard2.0
       System.Memory (>= 4.5.5) - restriction: || (>= net472) (&& (< net7.0) (>= netstandard2.0))
       System.Runtime.CompilerServices.Unsafe (>= 6.0) - restriction: || (>= net472) (&& (< net7.0) (>= netstandard2.0))
     Microsoft.NETCore.Platforms (7.0.4) - restriction: || (&& (< monoandroid) (< net45) (< netcoreapp3.1) (>= netstandard2.0) (< win8) (< wpa81) (< xamarinios) (< xamarinmac) (< xamarintvos) (< xamarinwatchos)) (&& (< monoandroid) (< net45) (< netstandard1.2) (>= netstandard2.0) (< win8)) (&& (< monoandroid) (< net45) (< netstandard1.3) (>= netstandard2.0) (< win8) (< wpa81)) (&& (< monoandroid) (< net45) (< netstandard1.5) (>= netstandard2.0) (< win8) (< wpa81)) (&& (< monoandroid) (>= net5.0) (< netcoreapp2.1) (< netstandard2.1) (< xamarintvos) (< xamarinwatchos)) (&& (>= netcoreapp2.0) (< netcoreapp2.1)) (&& (>= netcoreapp2.1) (< netcoreapp3.0))
     Microsoft.NETCore.Targets (5.0) - restriction: || (&& (< monoandroid) (< net45) (< netcoreapp3.1) (>= netstandard2.0) (< win8) (< wpa81) (< xamarinios) (< xamarinmac) (< xamarintvos) (< xamarinwatchos)) (&& (< monoandroid) (< net45) (< netstandard1.2) (>= netstandard2.0) (< win8)) (&& (< monoandroid) (< net45) (< netstandard1.3) (>= netstandard2.0) (< win8) (< wpa81)) (&& (< monoandroid) (< net45) (< netstandard1.5) (>= netstandard2.0) (< win8) (< wpa81))
-    Microsoft.VisualStudio.Setup.Configuration.Interop (3.6.2115) - restriction: || (>= net472) (>= net7.0)
+    Microsoft.VisualStudio.Setup.Configuration.Interop (3.7.2175) - restriction: || (>= net472) (>= net7.0)
     Microsoft.Win32.Registry (5.0) - restriction: || (&& (< net45) (>= netstandard2.0)) (&& (< net472) (< net7.0) (>= netstandard2.0))
       System.Buffers (>= 4.5.1) - restriction: || (&& (>= monoandroid) (< netstandard1.3)) (>= monotouch) (&& (< net46) (< netcoreapp2.0) (>= netstandard2.0)) (>= xamarinios) (>= xamarinmac) (>= xamarintvos) (>= xamarinwatchos)
       System.Memory (>= 4.5.4) - restriction: || (&& (< monoandroid) (>= netcoreapp2.0) (< netcoreapp2.1) (< xamarinios) (< xamarinmac) (< xamarintvos) (< xamarinwatchos)) (&& (< net46) (< netcoreapp2.0) (>= netstandard2.0) (< xamarinios) (< xamarinmac) (< xamarintvos) (< xamarinwatchos)) (>= uap10.1)
@@ -317,7 +314,7 @@ NUGET
       System.Security.Principal.Windows (>= 5.0) - restriction: || (&& (>= monoandroid) (< netstandard1.3)) (&& (< monoandroid) (>= netcoreapp2.0)) (>= monotouch) (&& (< net46) (< netcoreapp2.0) (>= netstandard2.0)) (>= net461) (>= netcoreapp2.1) (>= uap10.1) (>= xamarinios) (>= xamarinmac) (>= xamarintvos) (>= xamarinwatchos)
     Microsoft.Win32.SystemEvents (7.0) - restriction: >= net6.0
     Mono.Posix.NETStandard (1.0) - restriction: >= netstandard2.0
-    MSBuild.StructuredLogger (2.1.844) - restriction: >= netstandard2.0
+    MSBuild.StructuredLogger (2.1.858) - restriction: >= netstandard2.0
       Microsoft.Build.Framework (>= 17.5) - restriction: >= netstandard2.0
       Microsoft.Build.Utilities.Core (>= 17.5) - restriction: >= netstandard2.0
     Newtonsoft.Json (13.0.3) - restriction: >= netstandard2.0

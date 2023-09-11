@@ -1,7 +1,7 @@
 module Trace
 
 open Expecto
-open Lmc.Tracing
+open Alma.Tracing
 
 [<Tests>]
 let checkTraces =

@@ -1,4 +1,4 @@
-namespace Lmc.Tracing
+namespace Alma.Tracing
 
 open System
 

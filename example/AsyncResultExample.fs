@@ -1,12 +1,12 @@
-namespace Lmc.Tracing.Example
+namespace Alma.Tracing.Example
 
 open System
 open Microsoft.Extensions.Logging
-open Lmc.Tracing
+open Alma.Tracing
 
 [<RequireQualifiedAccess>]
 module AsyncResultExample =
-    open Lmc.ErrorHandling
+    open Alma.ErrorHandling
 
     type ErrorMessage = exn
 

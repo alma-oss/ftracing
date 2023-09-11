@@ -1,7 +1,7 @@
 module ActiveTrace
 
 open Expecto
-open Lmc.Tracing
+open Alma.Tracing
 
 [<Tests>]
 let checkActiveTrace =

@@ -1,4 +1,4 @@
-namespace Lmc.Tracing.Extension
+namespace Alma.Tracing.Extension
 
 open System.Collections.Generic
 
@@ -6,7 +6,7 @@ open OpenTelemetry
 open OpenTelemetry.Context.Propagation
 open OpenTelemetry.Extensions.Propagators
 
-open Lmc.Tracing
+open Alma.Tracing
 
 // see: https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/context/api-propagators.md#propagators-distribution
 // see: https://www.mytechramblings.com/posts/getting-started-with-opentelemetry-and-dotnet-core/

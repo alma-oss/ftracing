@@ -1,4 +1,4 @@
-namespace Lmc.Tracing
+namespace Alma.Tracing
 
 open System
 open System.Diagnostics
@@ -9,8 +9,8 @@ open OpenTelemetry.Trace
 open OpenTelemetry.Resources
 open Microsoft.Extensions.Logging
 
-open Lmc.ErrorHandling
-open Lmc.Logging
+open Alma.ErrorHandling
+open Alma.Logging
 
 [<RequireQualifiedAccess>]
 module Tracer =
