@@ -1,22 +1,22 @@
-framework: net7.0
+framework: net8.0
 
 source https://api.nuget.org/v3/index.json
-nuget FSharp.Core ~> 7.0
+nuget FSharp.Core ~> 8.0
 nuget FSharp.Data ~> 6.0
 nuget Microsoft.AspNetCore.Http ~> 2.2
-nuget Microsoft.Extensions.Logging ~> 7.0
-nuget OpenTelemetry ~> 1.2
-nuget OpenTelemetry.Api ~> 1.2
-nuget OpenTelemetry.Exporter.Console ~> 1.2
-nuget OpenTelemetry.Exporter.Jaeger ~> 1.2
-nuget OpenTelemetry.Instrumentation.Http
-nuget OpenTelemetry.Extensions.Propagators
+nuget Microsoft.Extensions.Logging ~> 8.0
+nuget OpenTelemetry ~> 1.7
+nuget OpenTelemetry.Api ~> 1.7
+nuget OpenTelemetry.Exporter.Console ~> 1.7
+nuget OpenTelemetry.Exporter.Jaeger ~> 1.2 # deprecated
+nuget OpenTelemetry.Instrumentation.Http ~> 1.7
+nuget OpenTelemetry.Extensions.Propagators ~> 1.7
 
 source https://nuget.pkg.github.com/almacareer/index.json username: "%PRIVATE_FEED_USER%" password: "%PRIVATE_FEED_PASS%"
 # LMC Nuget dependencies:
-nuget Alma.ErrorHandling ~> 8.0
-nuget Alma.Logging ~> 8.0
-nuget Alma.State ~> 7.0
+nuget Alma.ErrorHandling ~> 9.0
+nuget Alma.Logging ~> 9.0
+nuget Alma.State ~> 8.0
 
 nuget Expecto
 nuget YoloDev.Expecto.TestSdk
