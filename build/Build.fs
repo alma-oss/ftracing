@@ -1,5 +1,5 @@
 // ========================================================================================================
-// === F# / Project fake build ==================================================================== 1.1.0 =
+// === F# / Project fake build ==================================================================== 1.3.0 =
 // --------------------------------------------------------------------------------------------------------
 // Options:
 //  - no-clean   - disables clean of dirs in the first step (required on CI)
@@ -23,7 +23,9 @@ let main args =
             Summary = "A library to help with tracing."
             Git = Git.init ()
         }
-        Specs = Spec.defaultLibrary
+        Specs =
+            Spec.defaultLibrary
+            |> Spec.mapLibrary (fun library -> { library with NugetApi = NugetApi.Organization "almacareer" })
     }
 
     args |> Args.run
