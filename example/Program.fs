@@ -6,10 +6,18 @@ open Alma.Logging
 open Alma.Tracing
 open Alma.Tracing.Example
 
+let setEnvIfNotSet (key: string) (value: string) =
+    match Environment.GetEnvironmentVariable(key) with
+    | null | "" -> Environment.SetEnvironmentVariable(key, value)
+    | _ -> ()
+
 [<EntryPoint>]
 let main argv =
     printfn "Tracing Example"
     printfn "==============="
+
+    setEnvIfNotSet "TRACING_LOG_TO" "console"
+    setEnvIfNotSet "TRACING_LOG_LEVEL" "vvv"
 
     use loggerFactory = LoggerFactory.create [
         UseLevel LogLevel.Trace

@@ -12,6 +12,10 @@ open Microsoft.Extensions.Logging
 open Alma.ErrorHandling
 open Alma.Logging
 
+type AlmaTracer =
+    | ActiveTracer of Tracer
+    | NoopTracer
+
 [<RequireQualifiedAccess>]
 module Tracer =
     let requiredEnvironmentVariables = [
@@ -42,98 +46,113 @@ module Tracer =
             ]
         ]
 
-    let private env = getEnvVarValue >> Result.orFail
-
     let mutable private globalTracerProvider: TracerProvider option = None
 
-    let private initTracer () =
+    let private initTracer (): Result<AlmaTracer, _> = result {
         use loggerFactory = loggerFactory()
         let logger = loggerFactory.CreateLogger "OpenTelemetry.Tracer"
 
-        let serviceName = env "TRACING_SERVICE_NAME"
+        let! serviceName = getEnvVarValue "TRACING_SERVICE_NAME"
 
-        let tracerProvider =
+        let! tracerProvider =
             match globalTracerProvider with
             | Some tracerProvider ->
                 logger.LogDebug("Use global tracer provider")
-                tracerProvider
+                Ok tracerProvider
 
             | _ ->
-                logger.LogDebug("Init tracer provider")
-                let attributes =
-                    match getEnvVarValue "TRACING_TAGS" with
-                    | Ok tags ->
-                        tags.Split ","
-                        |> Seq.choose (fun tag ->
-                            match tag.Split "=" |> Seq.toList with
-                            | [] | [ _ ] -> None
-                            | [ key; value ] -> Some (key, value)
-                            | _ -> None
-                        )
-                        |> Seq.map (fun (k, v) -> KeyValuePair (k, v :> obj))
-                    | _ -> Seq.empty
+                result {
+                    logger.LogDebug("Init tracer provider")
+                    let! host = getEnvVarValue "TRACING_THRIFT_HOST"
 
-                let sampler = AlwaysOnSampler()
+                    let attributes =
+                        match getEnvVarValue "TRACING_TAGS" with
+                        | Ok tags ->
+                            tags.Split ","
+                            |> Seq.choose (fun tag ->
+                                match tag.Split "=" |> Seq.toList with
+                                | [] | [ _ ] -> None
+                                | [ key; value ] -> Some (key, value)
+                                | _ -> None
+                            )
+                            |> Seq.map (fun (k, v) -> KeyValuePair (k, v :> obj))
+                        | _ -> Seq.empty
 
-                let provider =
-                    Sdk.CreateTracerProviderBuilder()
-                        .AddSource(serviceName)
-                        .SetResourceBuilder(
-                            ResourceBuilder.CreateDefault()
-                                .AddService(serviceName = serviceName)
-                                .AddAttributes(attributes)
-                                .AddTelemetrySdk()
-                        )
-                        .AddHttpClientInstrumentation()
-                        .AddJaegerExporter(fun opt ->
-                            let logger = loggerFactory.CreateLogger("Jaeger")
+                    let sampler = AlwaysOnSampler()
 
-                            let logConf scope (conf: Exporter.JaegerExporterOptions) =
-                                logger.LogDebug("Settings<{scope}> ... Endpoint: {opt}", scope, conf.Endpoint)
-                                logger.LogDebug("Settings<{scope}> ... ExportProcessorType: {opt}", scope, conf.ExportProcessorType)
-                                logger.LogDebug("Settings<{scope}> ... MaxPayloadSizeInBytes: {opt}", scope, conf.MaxPayloadSizeInBytes)
-                                logger.LogDebug("Settings<{scope}> ... AgentHost: {opt}", scope, conf.AgentHost)
-                                logger.LogDebug("Settings<{scope}> ... AgentPort: {opt}", scope, conf.AgentPort)
-                                logger.LogDebug("Settings<{scope}> ... Protocol: {opt}", scope, conf.Protocol)
-                                logger.LogDebug("Settings<{scope}> ... HttpClientFactory: {opt}", scope, conf.HttpClientFactory.Invoke())
+                    let provider =
+                        Sdk.CreateTracerProviderBuilder()
+                            .AddSource(serviceName)
+                            .SetResourceBuilder(
+                                ResourceBuilder.CreateDefault()
+                                    .AddService(serviceName = serviceName)
+                                    .AddAttributes(attributes)
+                                    .AddTelemetrySdk()
+                            )
+                            .AddHttpClientInstrumentation()
+                            .AddJaegerExporter(fun opt ->
+                                let logger = loggerFactory.CreateLogger("Jaeger")
 
-                            opt |> logConf "default"
+                                let logConf scope (conf: Exporter.JaegerExporterOptions) =
+                                    logger.LogDebug("Settings<{scope}> ... Endpoint: {opt}", scope, conf.Endpoint)
+                                    logger.LogDebug("Settings<{scope}> ... ExportProcessorType: {opt}", scope, conf.ExportProcessorType)
+                                    logger.LogDebug("Settings<{scope}> ... MaxPayloadSizeInBytes: {opt}", scope, conf.MaxPayloadSizeInBytes)
+                                    logger.LogDebug("Settings<{scope}> ... AgentHost: {opt}", scope, conf.AgentHost)
+                                    logger.LogDebug("Settings<{scope}> ... AgentPort: {opt}", scope, conf.AgentPort)
+                                    logger.LogDebug("Settings<{scope}> ... Protocol: {opt}", scope, conf.Protocol)
+                                    logger.LogDebug("Settings<{scope}> ... HttpClientFactory: {opt}", scope, conf.HttpClientFactory.Invoke())
 
-                            let host = env "TRACING_THRIFT_HOST"
-                            opt.Endpoint <- Uri($"http://{host}/api/traces")
-                            opt.Protocol <- Exporter.JaegerExportProtocol.HttpBinaryThrift
+                                opt |> logConf "default"
 
-                            opt |> logConf "app"
-                        )
-                        .SetSampler(sampler)
+                                opt.Endpoint <- Uri($"http://{host}/api/traces")
+                                opt.Protocol <- Exporter.JaegerExportProtocol.HttpBinaryThrift
 
-                let provider =
-                    match getEnvVarValue "TRACING_EXPORT_CONSOLE" |> Result.map(fun s -> s.ToLowerInvariant()) with
-                    | Ok "on" -> provider.AddConsoleExporter()
-                    | _ -> provider
+                                opt |> logConf "app"
+                            )
+                            .SetSampler(sampler)
 
-                let tracerProvider = provider.Build()
-                globalTracerProvider <- Some tracerProvider
-                tracerProvider
+                    let provider =
+                        match getEnvVarValue "TRACING_EXPORT_CONSOLE" |> Result.map(fun s -> s.ToLowerInvariant()) with
+                        | Ok "on" -> provider.AddConsoleExporter()
+                        | _ -> provider
 
-        tracerProvider.GetTracer(serviceName)
+                    let tracerProvider = provider.Build()
+                    globalTracerProvider <- Some tracerProvider
+                    return tracerProvider
+                }
 
-    let buildTracer () =
-        let mutable tracerCache: Tracer option = None
+        return tracerProvider.GetTracer(serviceName) |> ActiveTracer
+    }
 
-        fun () ->
+    let buildTracer (): unit -> AlmaTracer =
+        if Check.isTracerAvailable() |> not then
             use loggerFactory = loggerFactory()
             let logger = loggerFactory.CreateLogger("OpenTelemetry.Tracer.Build")
+            logger.LogWarning("Using a Null Tracer. TracerProvider is not available.")
 
-            match tracerCache with
-            | Some tracer ->
-                logger.LogDebug("Getting cached tracer")
-                tracer
-            | None ->
-                logger.LogDebug("Initalizing new tracer")
-                let tracer = initTracer ()
-                tracerCache <- Some tracer
-                tracer
+            fun () -> NoopTracer
+        else
+            let mutable tracerCache: AlmaTracer option = None
+
+            fun () ->
+                use loggerFactory = loggerFactory()
+                let logger = loggerFactory.CreateLogger("OpenTelemetry.Tracer.Build")
+
+                match tracerCache with
+                | Some tracer ->
+                    logger.LogDebug("Getting cached tracer")
+                    tracer
+                | None ->
+                    logger.LogDebug("Initializing new tracer")
+                    match initTracer () with
+                    | Error e ->
+                        logger.LogWarning("Using a Null Tracer. Failed to init tracer: {error}", e)
+                        let tracer = NoopTracer
+                        tracerCache <- Some tracer
+                        tracer
+                    | Ok tracer ->
+                        tracerCache <- Some tracer
+                        tracer
 
     /// Default tracer for a common usage,
     /// where an async "thread" is a scope for an active trace
@@ -170,12 +189,15 @@ module TelemetrySpan =
     let private isNoop (id: string) =
         id.Replace(".", "") |> Seq.forall ((=) '0')
 
-    let (|IsAlive|_|): TelemetrySpan -> TelemetrySpan option = fun span ->
+    let (|IsAlive|_|): TelemetrySpan -> TelemetrySpan option = function
+        | null -> None
+        | span ->
         match span.Context with
         | TelemetrySpanContext.IsAlive _ -> Some (IsAlive span)
         | _ -> None
 
     let (|IsAliveChild|_|): TelemetrySpan -> TelemetrySpan option = function
+        | null -> None
         | IsAlive span when (string span.ParentSpanId) |> isNoop |> not -> Some (IsAliveChild span)
         | _ -> None
 
@@ -360,25 +382,38 @@ module Trace =
             SpanContext(&tId, &sId, ActivityTraceFlags.Recorded, false)
 
         let span (name: string) =
-            let ctx = ctx ()
-            Tracer.tracer().StartSpan(name, parentContext = &ctx)
+            match Tracer.tracer() with
+            | ActiveTracer tracer ->
+                let ctx = ctx ()
+                tracer.StartSpan(name, parentContext = &ctx)
+            | _ -> null
 
         let spanAt (startTime: DateTimeOffset) (name: string) =
-            let ctx = ctx ()
-            Tracer.tracer().StartSpan(name = name, startTime = startTime, parentContext = &ctx)
+            match Tracer.tracer() with
+            | ActiveTracer tracer ->
+                let ctx = ctx ()
+                tracer.StartSpan(name = name, startTime = startTime, parentContext = &ctx)
+            | _ -> null
 
         let startActive name =
-            let ctx = ctx ()
-            let span = Tracer.tracer().StartActiveSpan(name, parentContext = &ctx)
-            Tracer.WithSpan(span)
+            match Tracer.tracer() with
+            | ActiveTracer tracer ->
+                let ctx = ctx ()
+                let span = tracer.StartActiveSpan(name, parentContext = &ctx)
+                Tracer.WithSpan(span)
+            | _ -> null
 
         [<RequireQualifiedAccess>]
         module private ChildOf =
             let private childOf (parent: SpanContext) name =
-                Tracer.tracer().StartSpan(name = name, parentContext = &parent)
+                match Tracer.tracer() with
+                | ActiveTracer tracer -> tracer.StartSpan(name = name, parentContext = &parent)
+                | _ -> null
 
             let private childOfAt (startTime: DateTimeOffset) (parent: SpanContext) name =
-                Tracer.tracer().StartSpan(name = name, startTime = startTime, parentContext = &parent)
+                match Tracer.tracer() with
+                | ActiveTracer tracer -> tracer.StartSpan(name = name, startTime = startTime, parentContext = &parent)
+                | _ -> null
 
             let at = function
                 | Some startTime -> childOfAt startTime
@@ -404,10 +439,14 @@ module Trace =
         [<RequireQualifiedAccess>]
         module private ActiveChildOf =
             let private childOf (parent: SpanContext) name =
-                Tracer.tracer().StartActiveSpan(name = name, parentContext = &parent)
+                match Tracer.tracer() with
+                | ActiveTracer tracer -> tracer.StartActiveSpan(name = name, parentContext = &parent)
+                | _ -> null
 
             let private childOfAt (startTime: DateTimeOffset) (parent: SpanContext) name =
-                Tracer.tracer().StartActiveSpan(name = name, startTime = startTime, parentContext = &parent)
+                match Tracer.tracer() with
+                | ActiveTracer tracer -> tracer.StartActiveSpan(name = name, startTime = startTime, parentContext = &parent)
+                | _ -> null
 
             let at = function
                 | Some startTime -> childOfAt startTime
@@ -426,14 +465,19 @@ module Trace =
     [<RequireQualifiedAccess>]
     module Span =
         let start name =
-            name |> Build.span |> Span |> Live
+            match name |> Build.span with
+            | null -> Inactive
+            | span -> span |> Span |> Live
 
         let startAt startTime name =
-            name |> Build.spanAt startTime |> Span |> Live
+            match name |> Build.spanAt startTime with
+            | null -> Inactive
+            | span -> span |> Span |> Live
 
     [<RequireQualifiedAccess>]
     module Active =
         let private (|NoopSpan|_|): TelemetrySpan -> _ = function
+            | null -> Some NoopSpan
             | TelemetrySpan.IsAlive _span -> None
             | _ -> Some NoopSpan
 
@@ -442,7 +486,7 @@ module Trace =
             let logger = factory.CreateLogger("Trace.Active.current")
 
             match Tracer.CurrentSpan with
-            | null | NoopSpan ->
+            | NoopSpan ->
                 logger.LogTrace("No Active Trace")
                 Inactive
             | span ->
@@ -452,7 +496,9 @@ module Trace =
         let current = currentIn
 
         let start name =
-            name |> Build.startActive |> Span |> Live
+            match name |> Build.startActive with
+            | null -> Inactive
+            | span -> span |> Span |> Live
 
         let finish = current >> finish
 
