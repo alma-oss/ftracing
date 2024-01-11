@@ -2,6 +2,9 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+- Add an `AlmaTracer`
+- Use `AlmaTracer.NoopTracer` when `TracerProvider` is not available or there is a problem with a `Tracer`
+- [**BC**] Return `AlmaTracer` instead of `OpenTelemetry.Tracer`
 
 # 9.0.0 - 2024-01-09
 - [**BC**] Use net8.0
