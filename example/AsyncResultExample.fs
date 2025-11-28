@@ -6,7 +6,7 @@ open Alma.Tracing
 
 [<RequireQualifiedAccess>]
 module AsyncResultExample =
-    open Alma.ErrorHandling
+    open Feather.ErrorHandling
 
     type ErrorMessage = exn
 

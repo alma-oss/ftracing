@@ -12,11 +12,9 @@ nuget OpenTelemetry.Exporter.Jaeger ~> 1.2 # deprecated
 nuget OpenTelemetry.Instrumentation.Http ~> 1.7
 nuget OpenTelemetry.Extensions.Propagators ~> 1.7
 
-source https://nuget.pkg.github.com/almacareer/index.json username: "%PRIVATE_FEED_USER%" password: "%PRIVATE_FEED_PASS%"
-# LMC Nuget dependencies:
-nuget Alma.ErrorHandling ~> 10.0
-nuget Alma.Logging ~> 10.0
-nuget Alma.State ~> 9.1
+nuget Feather.ErrorHandling ~> 1.0
+nuget Alma.Logging ~> 11.0
+nuget Alma.State ~> 10.0
 
 nuget Expecto
 nuget YoloDev.Expecto.TestSdk
