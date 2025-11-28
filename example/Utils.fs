@@ -134,7 +134,7 @@ module ExampleUtils =
     [<RequireQualifiedAccess>]
     /// This is a kafkaApplication library in the real-life apps
     module Handler =
-        open Alma.ErrorHandling
+        open Feather.ErrorHandling
 
         let sequence (validations: Validation<'Success, 'Failure> seq): Validation<'Success seq, 'Failure> =
             let (<*>) = Validation.apply

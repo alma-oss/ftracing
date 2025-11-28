@@ -8,6 +8,6 @@ OpenTelemetry.Exporter.Console
 OpenTelemetry.Exporter.Jaeger
 OpenTelemetry.Instrumentation.Http
 OpenTelemetry.Extensions.Propagators
-Alma.ErrorHandling
+Feather.ErrorHandling
 Alma.Logging
 Alma.State

@@ -9,7 +9,7 @@ open OpenTelemetry.Trace
 open OpenTelemetry.Resources
 open Microsoft.Extensions.Logging
 
-open Alma.ErrorHandling
+open Feather.ErrorHandling
 open Alma.Logging
 
 type AlmaTracer =

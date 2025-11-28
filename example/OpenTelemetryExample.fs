@@ -8,7 +8,7 @@ open Microsoft.Extensions.Logging
 
 [<RequireQualifiedAccess>]
 module OpenTelemetryExample =
-    open Alma.ErrorHandling
+    open Feather.ErrorHandling
 
     open OpenTelemetry
     open OpenTelemetry.Trace

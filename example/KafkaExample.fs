@@ -2,7 +2,7 @@ namespace Alma.Tracing.Example
 
 open Microsoft.Extensions.Logging
 open Alma.Tracing
-open Alma.ErrorHandling
+open Feather.ErrorHandling
 
 [<RequireQualifiedAccess>]
 module KafkaExample =
