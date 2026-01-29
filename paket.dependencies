@@ -1,10 +1,10 @@
-framework: net9.0
+framework: net10.0
 
 source https://api.nuget.org/v3/index.json
-nuget FSharp.Core ~> 9.0
+nuget FSharp.Core ~> 10.0
 nuget FSharp.Data ~> 6.0
 nuget Microsoft.AspNetCore.Http ~> 2.2
-nuget Microsoft.Extensions.Logging ~> 9.0
+nuget Microsoft.Extensions.Logging ~> 10.0
 nuget OpenTelemetry ~> 1.7
 nuget OpenTelemetry.Api ~> 1.7
 nuget OpenTelemetry.Exporter.Console ~> 1.7
@@ -12,9 +12,9 @@ nuget OpenTelemetry.Exporter.Jaeger ~> 1.2 # deprecated
 nuget OpenTelemetry.Instrumentation.Http ~> 1.7
 nuget OpenTelemetry.Extensions.Propagators ~> 1.7
 
-nuget Feather.ErrorHandling ~> 1.0
-nuget Alma.Logging ~> 11.0
-nuget Alma.State ~> 10.0
+nuget Feather.ErrorHandling ~> 2.0
+nuget Alma.Logging ~> 12.0
+nuget Alma.State ~> 11.0
 
 nuget Expecto
 nuget YoloDev.Expecto.TestSdk
