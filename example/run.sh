@@ -16,7 +16,7 @@ VERBOSITY=vvv
 ###
 ### Open Telementry Tracing
 ###
-export TRACING_THRIFT_HOST="tracing-thrift.service.$ENVIRONMENT.consul:80"
+export TRACING_OTLP_ENDPOINT="http://otel-collector.service.$ENVIRONMENT.consul:4317"
 export TRACING_SERVICE_NAME="$DOMAIN-$CONTEXT"
 export TRACING_TAGS="svc_domain=$DOMAIN,svc_context=$CONTEXT,svc_purpose=$PURPOSE,svc_version=$VERSION"
 export TRACING_LOG_TO="$LOG_TO"

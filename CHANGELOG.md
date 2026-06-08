@@ -2,6 +2,16 @@
 
 <!-- There is always Unreleased section on the top. Subsections (Add, Changed, Fix, Removed) should be Add as needed. -->
 ## Unreleased
+- [**BC**] Replace Jaeger Thrift exporter with OTLP exporter (`OpenTelemetry.Exporter.OpenTelemetryProtocol`)
+- [**BC**] Environment variable `TRACING_THRIFT_HOST` replaced by `TRACING_OTLP_ENDPOINT` (expects full URL, e.g. `http://otel-collector:4317`)
+- [**BC**] Switch HTTP propagation from B3 to W3C Trace Context (`traceparent`/`tracestate`)
+- Support standard OTel env vars (`OTEL_SERVICE_NAME`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_TRACES_SAMPLER`) with precedence over custom `TRACING_*` vars
+- Switch from `AlwaysOnSampler` to `ParentBasedSampler` — respects upstream sampling decision (e.g. from Istio)
+- Add configurable root sampler via `OTEL_TRACES_SAMPLER` / `TRACING_SAMPLER` env var (`always_on`, `always_off`, `traceidratio`)
+- Add `TracingConfig.configureTracing` for ASP.NET Core / Giraffe / Saturn integration
+- Add `OpenTelemetry.Instrumentation.AspNetCore` dependency
+- Remove deprecated `OpenTelemetry.Exporter.Jaeger` dependency
+- Remove `OpenTelemetry.Extensions.Propagators` (B3) dependency
 
 # 13.0.0 - 2026-01-29
 - [**BC**] Use net10.0

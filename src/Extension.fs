@@ -4,7 +4,6 @@ open System.Collections.Generic
 
 open OpenTelemetry
 open OpenTelemetry.Context.Propagation
-open OpenTelemetry.Extensions.Propagators
 
 open Alma.Tracing
 
@@ -16,7 +15,7 @@ module private Headers =
     type Headers = Dictionary<string, string>
     type IHeaders = IDictionary<string, string>
 
-    type HeaderSeq = (string * string) seq
+    type HeaderSeq = seq<string * string>
 
     let headersToDictionary (headerList: HeaderSeq): IHeaders =
         headerList
@@ -30,6 +29,10 @@ module private Headers =
             (Headers())
         :> IHeaders
 
+    /// W3C Trace Context propagator
+    let propagator =
+        TraceContextPropagator() :> TextMapPropagator
+
 [<RequireQualifiedAccess>]
 module Http =
     open Microsoft.AspNetCore.Http
@@ -40,7 +43,7 @@ module Http =
 
     let extractFromHeaders headers =
         let parentContext =
-            B3Propagator().Extract(
+            propagator.Extract(
                 PropagationContext(),
                 headers |> headersToDictionary,
                 System.Func<IHeaders, string, IEnumerable<string>> (fun props key ->
@@ -75,7 +78,7 @@ module Http =
         | Some (TraceContext context) ->
             let headersDict = headers |> headersToDictionary
 
-            B3Propagator().Inject(
+            propagator.Inject(
                 PropagationContext(context, Baggage.Current),
                 headersDict,
                 System.Action<IHeaders, string, string> (fun props key value ->
@@ -83,16 +86,6 @@ module Http =
                     props.Add(key, value)
                 )
             )
-
-            // fix for missing parent id propagation (caused probably by https://github.com/open-telemetry/opentelemetry-dotnet/issues/2025)
-            match trace.ParentId() with
-            | Some parent when headersDict.ContainsKey "X-B3-ParentSpanId" |> not ->
-                headersDict.Add("X-B3-ParentSpanId", parent.ToHexString())
-
-            | Some parent when headersDict.Remove("X-B3-ParentSpanId") ->
-                headersDict.Add("X-B3-ParentSpanId", parent.ToHexString())
-
-            | _ -> ()
 
             headersDict
             |> Seq.map (fun kv -> kv.Key, kv.Value)
