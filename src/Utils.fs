@@ -13,6 +13,17 @@ module internal Utils =
         | null | "" -> Error $"{name} is not found."
         | value -> Ok value
 
+    /// Try standard OTel env var first, then fall back to custom TRACING_* env var.
+    let getEnvVarWithFallback standardName fallbackName =
+        match getEnvVarValue standardName with
+        | Ok value -> Ok value
+        | Error _ -> getEnvVarValue fallbackName
+
+    let tryParseFloat (s: string) : float option =
+        match Double.TryParse(s, Globalization.NumberStyles.Float, Globalization.CultureInfo.InvariantCulture) with
+        | true, v -> Some v
+        | _ -> None
+
 /// see: https://opentracing.io/specification/conventions/
 /// see: https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/trace/semantic_conventions/exceptions.md
 type TracedError<'Error> = {

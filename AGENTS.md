@@ -2,7 +2,7 @@
 
 ## Project Purpose
 
-`Alma.Tracing` is an F# NuGet library for distributed tracing in web applications. Built on OpenTelemetry, it provides a high-level F# API for creating and managing trace spans (active, child, custom-scoped), HTTP context propagation (B3 format), and a tracing-aware logger provider. It exports traces to Jaeger via Thrift and optionally to the console.
+`Alma.Tracing` is an F# NuGet library for distributed tracing in web applications. Built on OpenTelemetry, it provides a high-level F# API for creating and managing trace spans (active, child, custom-scoped), HTTP context propagation (W3C Trace Context), parent-based sampling, and a tracing-aware logger provider. It exports traces via OTLP (OpenTelemetry Protocol) and optionally to the console.
 
 ## Tech Stack
 
@@ -19,9 +19,9 @@
 - `OpenTelemetry ~> 1.7` — core tracing SDK
 - `OpenTelemetry.Api ~> 1.7` — API abstractions
 - `OpenTelemetry.Exporter.Console ~> 1.7` — optional console exporter
-- `OpenTelemetry.Exporter.Jaeger ~> 1.2` — Jaeger Thrift exporter (**deprecated** upstream)
+- `OpenTelemetry.Exporter.OpenTelemetryProtocol ~> 1.7` — OTLP exporter (gRPC/HTTP)
+- `OpenTelemetry.Instrumentation.AspNetCore ~> 1.7` — automatic ASP.NET Core instrumentation
 - `OpenTelemetry.Instrumentation.Http ~> 1.7` — automatic HTTP client instrumentation
-- `OpenTelemetry.Extensions.Propagators ~> 1.7` — B3 propagation format
 - `Microsoft.AspNetCore.Http ~> 2.2` — `HttpContext` for header extraction
 - `Microsoft.Extensions.Logging ~> 10.0` — logger abstractions
 - `Feather.ErrorHandling ~> 2.0` — `AsyncResult`, `Result` operators
@@ -43,12 +43,21 @@ dotnet paket install
 
 ## Environment Variables
 
+The library supports standard OTel env vars (precedence) and custom `TRACING_*` fallbacks.
+
 ### Required
 
-| Variable | Description |
-|---|---|
-| `TRACING_SERVICE_NAME` | OpenTelemetry service name |
-| `TRACING_THRIFT_HOST` | Jaeger Thrift collector host (used as `http://{host}/api/traces`) |
+| Standard (precedence) | Custom (fallback) | Description |
+|---|---|---|
+| `OTEL_SERVICE_NAME` | `TRACING_SERVICE_NAME` | OpenTelemetry service name |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `TRACING_OTLP_ENDPOINT` | OTLP collector endpoint (e.g., `http://otel-collector:4317`) |
+
+### Sampling
+
+| Standard (precedence) | Custom (fallback) | Description |
+|---|---|---|
+| `OTEL_TRACES_SAMPLER` | `TRACING_SAMPLER` | Root sampler: `always_on` (default), `always_off`, `traceidratio` |
+| `OTEL_TRACES_SAMPLER_ARG` | `TRACING_SAMPLER_ARG` | Sampler argument (ratio for `traceidratio`, e.g. `0.1`) |
 
 ### Recommended
 
@@ -71,17 +80,18 @@ dotnet paket install
 ├── Tracing.fsproj                # Project file (version, package metadata)
 ├── AssemblyInfo.fs               # Auto-generated assembly info
 ├── src/
-│   ├── Utils.fs                  # Internal helpers (getEnvVarValue, etc.)
+│   ├── Utils.fs                  # Internal helpers (getEnvVarValue, getEnvVarWithFallback, etc.)
 │   ├── Tracing.fs                # Core: AlmaTracer, Tracer init, Trace module (Active, ChildOf, finish, addTags, addEvent)
 │   ├── Extension.fs              # HTTP propagation: Http.extractFromContext, Http.inject, Http.injectActive
 │   ├── CustomTracingScope.fs     # Custom scope: TracingState (store/load/clear), ScopedTrace disposable
+│   ├── ServiceCollectionExtensions.fs # TracingConfig.configureTracing for ASP.NET Core / Giraffe / Saturn
 │   └── Logger.fs                 # TracingLogger + TracingProvider (ILoggerProvider that writes to active trace)
 ├── tests/
 │   ├── tests.fsproj              # Test project
 │   ├── Tests.fs                  # Test runner entry point
 │   ├── Trace.fs                  # Core tracing tests
 │   ├── ActiveTrace.fs            # Active trace tests
-│   ├── Propagation.fs            # B3 propagation tests
+│   ├── Propagation.fs            # W3C Trace Context propagation tests
 │   └── KafkaPropagation.fs       # Kafka header propagation tests
 ├── example/                      # Example usage (if present)
 ├── build/                        # FAKE build scripts
@@ -103,11 +113,11 @@ dotnet paket install
    - **`Trace.finish`**, **`Trace.addTags`**, **`Trace.addEvent`**, **`Trace.id`**, **`Trace.context`**
 
 2. **`Extension`** (`Alma.Tracing.Extension`) — HTTP propagation:
-   - `Http.extractFromContext httpContext` — extracts B3 trace context from incoming request headers
+   - `Http.extractFromContext httpContext` — extracts W3C trace context from incoming request headers
    - `Http.extractFromHeaders headers` — extracts from raw header sequence
-   - `Http.inject trace headers` — injects B3 headers into outgoing request
+   - `Http.inject trace headers` — injects W3C Trace Context headers into outgoing request
    - `Http.injectActive headers` — injects active trace into outgoing request
-   - Includes workaround for missing `X-B3-ParentSpanId` propagation
+   - Uses `TraceContextPropagator` (W3C Trace Context standard)
 
 3. **`CustomTracingScope`** — cross-async trace persistence:
    - `TracingState.storeActiveTrace identifier trace` / `loadActiveTrace` / `clearActiveTrace`
@@ -128,13 +138,14 @@ Trace.Active.start "Name"          → creates active span (stored in AsyncLocal
     → Trace.finish                 → ends span (or use `use` for auto-dispose)
 ```
 
-### HTTP Propagation (B3 format)
+### HTTP Propagation (W3C Trace Context)
 
 ```
 Incoming request → Http.extractFromContext ctx → TraceContext option
+    (uses W3C traceparent/tracestate headers)
     → Trace.ChildOf.continueOrStartActive extractFn → continues or starts new trace
 
-Outgoing request → Http.injectActive headers → headers with B3 trace/span/parent IDs
+Outgoing request → Http.injectActive headers → headers with W3C traceparent/tracestate
 ```
 
 ## Conventions
@@ -144,7 +155,7 @@ Outgoing request → Http.injectActive headers → headers with B3 trace/span/pa
 - **`use __ =`** — idiomatic pattern when the trace variable is not needed
 - **`AsyncLocal`** — active trace is stored in `AsyncLocal` (safe across async continuations within the same logical thread)
 - **Graceful degradation** — if tracing env vars are missing, `NoopTracer` is used; no exceptions
-- **B3 propagation** — uses `B3Propagator` from OpenTelemetry extensions (Zipkin-compatible header format)
+- **W3C Trace Context propagation** — uses `TraceContextPropagator` for `traceparent`/`tracestate` header propagation
 - **`[<RequireQualifiedAccess>]`** on public modules
 
 ## CI/CD
@@ -163,10 +174,9 @@ Outgoing request → Http.injectActive headers → headers with B3 trace/span/pa
 
 ## Pitfalls
 
-- **No docker-compose / no local environment** — this is a pure library; Jaeger must be running separately for tracing to export
-- **`OpenTelemetry.Exporter.Jaeger` is deprecated** upstream — pinned at `~> 1.2`; future migration to OTLP exporter may be needed
-- **Environment variable dependency** — `Tracer.buildTracer()` silently returns `NoopTracer` if `TRACING_SERVICE_NAME` or `TRACING_THRIFT_HOST` are unset; no error is thrown
-- **B3 ParentSpanId workaround** — `Extension.fs` contains a manual fix for missing parent ID propagation; do not remove without verifying the upstream OpenTelemetry fix
+- **No docker-compose / no local environment** — this is a pure library; an OpenTelemetry Collector (or compatible backend) must be running separately for tracing to export
+- **OTLP exporter** — uses `OpenTelemetry.Exporter.OpenTelemetryProtocol`; endpoint configured via `TRACING_OTLP_ENDPOINT`
+- **Environment variable dependency** — `Tracer.buildTracer()` silently returns `NoopTracer` if `TRACING_SERVICE_NAME` or `TRACING_OTLP_ENDPOINT` are unset; no error is thrown
 - **`CustomTracingScope`** — uses global mutable `State`; identifiers must be unique across the application to avoid collisions
-- **Jaeger endpoint** — constructed as `http://{TRACING_THRIFT_HOST}/api/traces` using `HttpBinaryThrift` protocol
+- **OTLP endpoint** — configured via `TRACING_OTLP_ENDPOINT` environment variable, expects a full URL (e.g., `http://otel-collector:4317`)
 - **`TracingLogger`** — only writes to active spans; if no active trace exists, log messages are silently dropped

@@ -25,45 +25,57 @@ module internal Targets =
         let init safe =
             Target.create "SafeClean" (fun _ ->
                 Shell.cleanDir safe.DeployPath
-                run dotnet "fable clean --yes" safe.ClientPath // Delete *.fs.js files created by Fable
+                run dotnet [ "fable"; "clean"; "--yes" ] safe.ClientPath // Delete *.fs.js files created by Fable
             )
 
             Target.create "InstallClient" (fun _ ->
-                run npm "--version" "."
-                run npm "install" "."
+                run npm [ "--version" ] "."
+                run npm [ "install" ] "."
             )
 
             Target.create "Bundle" (fun _ ->
                 [
-                    "server", dotnet $"publish -c Release -o \"{safe.DeployPath}\"" safe.ServerPath
-                    "client", dotnet "fable -o output -s --run npm run build" safe.ClientPath
+                    "server", dotnet [ "publish"; "-c"; "Release"; "-o"; safe.DeployPath ] safe.ServerPath
+                    "client", dotnet [ "fable"; "-o"; "output"; "-s"; "--run"; "npx"; "vite"; "build" ] safe.ClientPath
                 ]
                 |> runParallel
             )
 
             Target.create "Run" (fun _ ->
-                run dotnet "build" safe.SharedPath
+                run dotnet [ "build" ] safe.SharedPath
                 [
-                    "server", dotnet "watch run" safe.ServerPath
-                    "client", dotnet "fable watch -o output -s --run npm run start" safe.ClientPath
+                    "server", dotnet [ "watch"; "run" ] safe.ServerPath
+                    "client", dotnet [ "fable"; "watch"; "-o"; "output"; "-s"; "--run"; "npx"; "vite" ] safe.ClientPath
+                ]
+                |> runParallel
+            )
+
+            Target.create "RunMirrord" (fun _ ->
+                run dotnet [ "build" ] safe.SharedPath
+                Environment.setEnvironVar "RUN_IN" "mirrord"
+                [
+                    "server", createProcess "mirrord" [ "exec"; "--config-file"; "../../.mirrord/mirrord.json"; "--"; "dotnet"; "watch"; "run" ] safe.ServerPath
+                    "client", dotnet [ "fable"; "watch"; "-o"; "output"; "-s"; "--run"; "npx"; "vite" ] safe.ClientPath
                 ]
                 |> runParallel
             )
 
             Target.create "WatchTests" (fun _ ->
-                run dotnet "build" safe.SharedTestsPath
+                run dotnet [ "build" ] safe.SharedTestsPath
+
                 [
-                    "server", dotnet "watch run" safe.ServerTestsPath
-                    "client", dotnet "fable watch -o output -s --run npm run test:live" safe.ClientTestsPath
+                    "server", dotnet [ "watch"; "run" ] safe.ServerTestsPath
+                    "client", dotnet [ "fable"; "watch"; "-o"; "output"; "-s"; "--run"; "npx"; "vite" ] safe.ClientTestsPath
                 ]
                 |> runParallel
             )
 
             Target.create "Tests" (fun _ ->
-                run dotnet "build" safe.SharedTestsPath
+                run dotnet [ "build" ] safe.SharedTestsPath
+
                 [
-                    "server", dotnet "run" safe.ServerTestsPath
-                    // "client", dotnet "fable watch -o output -s --run npm run test:live" clientTestsPath
+                    "server", dotnet [ "run" ] safe.ServerTestsPath
+                    //"client", dotnet [ "fable"; "watch"; "-o"; "output"; "-s"; "--run"; "npx"; "vite" ] safe.ClientTestsPath
                 ]
                 |> runParallel
             )
@@ -85,7 +97,7 @@ module internal Targets =
                     ==> "Tests" <=> "WatchTests"
 
                 "Build"
-                    ==> "Run"
+                    ==> "Run" <=> "RunMirrord"
             ]
 
     let init (definition: ProjectDefinition) =

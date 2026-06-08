@@ -5,7 +5,7 @@ F-Tracing
 [![NuGet Downloads](https://img.shields.io/nuget/dt/Alma.Tracing.svg)](https://www.nuget.org/packages/Alma.Tracing)
 [![Tests](https://github.com/alma-oss/ftracing/actions/workflows/tests.yaml/badge.svg)](https://github.com/alma-oss/ftracing/actions/workflows/tests.yaml)
 
-> A library to help with tracing.
+> F# distributed tracing library built on OpenTelemetry. Exports traces via OTLP (gRPC), propagates context using W3C Trace Context (`traceparent`/`tracestate`), and supports parent-based sampling.
 
 ## Install
 
@@ -14,40 +14,207 @@ Add following into `paket.references`
 Alma.Tracing
 ```
 
+## Architecture
+
+```
+App (F# / Giraffe / Saturn)
+  ↓ OTLP (gRPC, port 4317)
+OpenTelemetry Collector
+  ↓
+Backend (Grafana Tempo, Jaeger, etc.)
+  ↓
+Grafana UI
+```
+
 ## Configuration
-You can use environment values to configure tracing and inner logger
 
-List of Required environment variables
-```
-TRACING_SERVICE_NAME
-TRACING_THRIFT_HOST
+### Environment Variables
+
+The library supports both standard OpenTelemetry environment variables and custom `TRACING_*` variables.
+**Standard OTel variables take precedence** when both are set.
+
+#### Required (service name + OTLP endpoint)
+
+| Standard (precedence) | Custom (fallback) | Description |
+|---|---|---|
+| `OTEL_SERVICE_NAME` | `TRACING_SERVICE_NAME` | OpenTelemetry service name |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `TRACING_OTLP_ENDPOINT` | OTLP collector endpoint (e.g. `http://otel-collector:4317`) |
+
+If neither the standard nor the custom variable is set, the library silently uses a `NoopTracer` — no exceptions, no traces exported.
+
+#### Sampling
+
+| Standard (precedence) | Custom (fallback) | Description |
+|---|---|---|
+| `OTEL_TRACES_SAMPLER` | `TRACING_SAMPLER` | Root sampler: `always_on` (default), `always_off`, `traceidratio` |
+| `OTEL_TRACES_SAMPLER_ARG` | `TRACING_SAMPLER_ARG` | Sampler argument (ratio for `traceidratio`, e.g. `0.1` = 10%) |
+
+The sampler is **parent-based** — if an incoming request carries a sampled trace (e.g. from Istio or another service), the sampling decision is inherited. The root sampler only applies when there is no parent trace.
+
+#### Resource attributes
+
+| Variable | Description |
+|---|---|
+| `TRACING_TAGS` | Comma-separated `key=value` pairs added as resource attributes (e.g. `env=production,version=1.0`) |
+
+#### Logging (optional)
+
+See [Alma.Logging](https://github.com/alma-oss/flogging) for more information.
+
+| Variable | Description |
+|---|---|
+| `TRACING_LOG_TO` | Log destination |
+| `TRACING_LOG_LEVEL` | Log level for tracing internals |
+| `TRACING_LOG_META` | Log metadata (e.g. `domain:DOMAIN; context:CONTEXT; purpose:PURPOSE; version:VERSION`) |
+
+#### Debugging
+
+| Variable | Description |
+|---|---|
+| `TRACING_EXPORT_CONSOLE` | Set to `"on"` to enable ConsoleExporter (outputs span information to stdout) |
+
+## Connecting your application
+
+### ASP.NET Core / Giraffe / Saturn (recommended)
+
+The library provides `TracingConfig.configureTracing` for one-line integration into your ASP.NET Core pipeline.
+It configures OTLP export, incoming HTTP request instrumentation, outgoing HTTP client instrumentation, and parent-based sampling — all from environment variables.
+
+```fs
+open Microsoft.Extensions.DependencyInjection
+open OpenTelemetry
+
+open Alma.Tracing
+
+let configureServices (services: IServiceCollection) =
+    services.AddOpenTelemetry()
+    |> TracingConfig.configureTracing
+    |> ignore
+
+    services
 ```
 
-List of Recommended environment variables
-```
-TRACING_TAGS
-```
-
-List of optional logging environment variables (see https://github.com/alma-oss/flogging for more information)
-```
-TRACING_LOG_TO
-TRACING_LOG_LEVEL
-TRACING_LOG_META
+In Saturn:
+```fs
+application {
+    service_config configureServices
+    // ...
+}
 ```
 
-**TIP**: You can add instance data to `TRACING_LOG_META` by `TRACING_LOG_META="domain:DOMAIN; context:CONTEXT; purpose:PURPOSE; version:VERSION"`
-
-And one special (mostly for debugging)
-> It will enable a ConsoleExporter for OpenTelemetry tracing, which outputs all span information to the console stdout
+In Giraffe (Startup.fs):
+```fs
+member _.ConfigureServices(services: IServiceCollection) =
+    services.AddOpenTelemetry()
+    |> TracingConfig.configureTracing
+    |> ignore
 ```
-TRACING_EXPORT_CONSOLE="on"
+
+This sets up:
+- **OTLP gRPC export** to the configured endpoint
+- **ASP.NET Core instrumentation** — automatic spans for incoming HTTP requests
+- **HTTP client instrumentation** — automatic spans for outgoing HTTP requests
+- **Parent-based sampling** — respects upstream sampling decisions (e.g. from Istio sidecar)
+- **W3C Trace Context propagation** — `traceparent`/`tracestate` headers
+
+### Standalone (without ASP.NET Core)
+
+If you don't use ASP.NET Core, the library initializes tracing automatically on first use. Just set the environment variables and start tracing:
+
+```fs
+open Alma.Tracing
+
+let main () =
+    use trace = Trace.Active.start "my-operation"
+    // ... your code ...
+    0
+```
+
+## Trace Context Propagation (W3C)
+
+The library uses **W3C Trace Context** (`traceparent`/`tracestate`) for propagation.
+This is the standard used by Istio, OpenTelemetry, and most modern tracing systems.
+
+### How it works with Istio
+
+1. Istio sidecar receives an incoming request
+2. If no `traceparent` header exists, Istio creates a new trace
+3. Istio adds its own spans and forwards the `traceparent` header to your app
+4. Your app extracts the trace context and creates child spans
+5. Outgoing requests from your app include the `traceparent` header
+6. Istio sidecar on the outgoing side adds its own spans
+
+**Result**: end-to-end trace across services with both Istio and application spans.
+
+### Extracting trace from incoming HTTP request
+
+```fs
+open Alma.Tracing
+open Alma.Tracing.Extension
+
+let entryPoint (ctx: Microsoft.AspNetCore.Http.HttpContext) args =
+    use trace =
+        "Receive request"
+        |> Trace.ChildOf.continueOrStartActive (fun () -> ctx |> Http.extractFromContext)
+        |> Trace.addTags [ "component", "MyService" ]
+
+    // ... handle request ...
+```
+
+### Injecting trace into outgoing HTTP request
+
+```fs
+open FSharp.Data
+open FSharp.Data.HttpRequestHeaders
+open Alma.Tracing
+open Alma.Tracing.Extension
+
+let callOtherService url =
+    Http.AsyncRequestString (
+        url,
+        httpMethod = "GET",
+        headers = (
+            [ Accept HttpContentTypes.Json ]
+            |> Http.injectActive    // injects traceparent/tracestate from current active trace
+        )
+    )
+```
+
+### Kafka propagation
+
+The same `Http.inject` / `Http.extractFromHeaders` functions work for Kafka headers.
+W3C `traceparent`/`tracestate` are stored as Kafka message headers:
+
+```fs
+// Inject into Kafka headers
+let kafkaHeaders = Http.inject trace [ (* existing headers *) ]
+
+// Extract from Kafka headers (in consumer)
+let traceContext = Http.extractFromHeaders kafkaHeaders
 ```
 
 ## Usage
 
 ### Start active span for the whole function
 
-With explicit finishing
+With implicit finishing (`use`):
+```fs
+open Alma.Tracing
+
+module MyApplication =
+    let someAction args =
+        use someActionTrace =
+            "Some Action"
+            |> Trace.Active.start
+            |> Trace.addTags [ "component", "MyApplication" ]
+
+        // do some action ...
+        // trace is automatically finished at end of scope
+
+        0
+```
+
+With explicit finishing (`let`):
 ```fs
 open Alma.Tracing
 
@@ -60,25 +227,7 @@ module MyApplication =
 
         // do some action ...
 
-        someActionTrace |> Trace.finish     // trace is created with `let` keyword so we need to finish it explicitly
-
-        0
-```
-
-With implicit finishing
-```fs
-open Alma.Tracing
-
-module MyApplication =
-    let someAction args =
-        use someActionTrace =
-            "Some Action"
-            |> Trace.Active.start
-            |> Trace.addTags [ "component", "MyApplication" ]
-
-        // do some action ...
-
-        // someActionTrace |> Trace.finish     // trace is created with `use` keyword so is disposed in the end by default
+        someActionTrace |> Trace.finish
 
         0
 ```
@@ -91,13 +240,13 @@ open Alma.Tracing
 
 module internal Logic =
     let doSomeWork trace args =
-        use __ = "Do some work" |> Trace.ChildOf.start trace      // given trace is used as a parent of a new span, which in this case is automatically disposed in the end
+        use __ = "Do some work" |> Trace.ChildOf.start trace
         // actually do some work ...
         "return value"
 
 module internal OtherLogic =
     let doSomeMoreWork value =
-        use __ = "Do some more work" |> Trace.ChildOf.startFromActive       // in this case we don't have any given trace, so we will just continue in current active trace
+        use __ = "Do some more work" |> Trace.ChildOf.startFromActive
         // actually do some more work ...
         "return value"
 
@@ -108,75 +257,20 @@ module MyApplication =
             |> Trace.Active.start
             |> Trace.addTags [ "component", "MyApplication" ]
 
-        // do some work ...
         args
         |> Logic.doSomeWork mainActionTrace
         |> OtherLogic.doSomeMoreWork
-
-        0       // in the end of the mainAction the mainActionTrace is automatically disposed (finished)
 ```
 
-Trace from the previous example should look like:
+Trace from the previous example:
 ```
 Main Action
-    - Do some work
-    - Do some more work
-```
-
-### Trace received HTTP request with Extension
-```fs
-open Alma.Tracing
-open Alma.Tracing.Extension
-
-let entryPoint (ctx: Microsoft.AspNetCore.Http.HttpContext) args =
-    use receiveRequestTrace =       // with `use` trace will be finished automatically in the end of the method
-        "Receive request"
-        |> Trace.ChildOf.continueOrStartActive (fun () -> ctx |> Http.extractFromContext)     // this will either extract the trace from request headers or start an active span
-        |> Trace.addTags [ "component", "Example" ]
-
-    // debug trace id
-    receiveRequestTrace |> Trace.id |> printfn "[Debug] Trace id: %A"
-
-    let validationTrace = "Validation" |> Trace.ChildOf.start receiveRequestTrace      // `let` means, the trace must be finished by Trace.finish
-    let validated = args |> validation
-    validationTrace |> Trace.finish
-
-    use _ = "Some work" |> Trace.ChildOf.start receiveRequestTrace     // `use` will finish someWorkTrace automatically in the end of the method
-    validated |> someWork
-```
-
-### Trace sent HTTP request
-```fs
-open FSharp.Data
-open FSharp.Data.HttpRequestHeaders
-open Feather.ErrorHandling
-
-open Alma.Tracing
-open Alma.Tracing.Extension
-
-let httpRequest url = asyncResult {
-    let! rawResponse =
-        Http.AsyncRequestString (
-            url,
-            httpMethod = "GET",
-            headers = (
-                [
-                    Accept HttpContentTypes.Json
-                    // other headers ...
-                ]
-                |> Http.injectActive      // this will trace with an active span, if you want to pass your own, use `inject` instead
-            )
-        )
-        |> AsyncResult.ofAsyncCatch ApiError
-
-    let response = Schema.Parse(rawResponse)
-
-    return response // ...
-}
+    ├── Do some work
+    └── Do some more work
 ```
 
 ### Custom Tracing Scope
-Default tracer uses `AsyncLocal` class as a repository for an Active trace - so it is available safely in an async "thread".
+Default tracer uses `AsyncLocal` class as a repository for an Active trace — so it is available safely in an async "thread".
 If you need to persist an Active trace between async threads, you need to store it somewhere else.
 There is a custom tracing scope for this purpose.
 
@@ -185,29 +279,21 @@ open Alma.Tracing
 open Alma.Tracing.CustomTracingScope
 
 let example () =
-    let mainTrace = Trace.Active.start "example"   // in this case, you could store an active trace in variable and pass it to asyncs, without using a custom state, but if your asyncs would be different functions etc, it could be easier to ask Tracer for an active trace "globally" instead. But you still need a unique identifier to retrieve a trace you want!
+    let mainTrace = Trace.Active.start "example"
 
     mainTrace |> TracingState.storeActiveTrace "main"
 
     async {
-        // let mainTrace = Trace.Active.current()  // this would normally doesn't return an active trace since there is no active trace in this async
-        let mainTrace = TracingState.loadActiveTrace "main" // but we have stored an active trace in tracing state
-
+        let mainTrace = TracingState.loadActiveTrace "main"
         // ... do something, trace children, ...
     }
     |> Async.RunSynchronously
 
     async {
         let mainTrace = TracingState.loadActiveTrace "main"
-
         // ... do something, trace children, ...
 
-        // if we want to finish the current "main" trace here now, in the async
-        // we need to clear the trace from our tracing state, otherwise it would stack there forever
-
-        mainTrace
-        |> Trace.finish
-
+        mainTrace |> Trace.finish
         TracingState.clearActiveTrace "main"
     }
     |> Async.RunSynchronously
@@ -215,8 +301,7 @@ let example () =
     0
 ```
 
-#### Scoped Trace
-There is also a shortcut for the above example, if you use a `ScopedTrace` disposable object.
+#### Scoped Trace (shortcut)
 
 ```fs
 open Alma.Tracing
@@ -230,23 +315,15 @@ let example () =
 
     async {
         let mainTrace = (new ScopedTrace("main")).Trace
-
         // ... do something, trace children, ...
     }
     |> Async.RunSynchronously
 
     async {
-        let scopedMainTrace = new ScopedTrace("main")   // we can use `use` here so it would be disposed and cleared automatically
+        use scopedMainTrace = new ScopedTrace("main")
         let mainTrace = scopedMainTrace.Trace
-
         // ... do something, trace children, ...
-
-        // if we want to finish the current "main" trace here now, in the async
-
-        scopedMainTrace.Finish()    // it will automatically finish the trace and clear it out of a tracing state
-
-        // or by function
-        // scopedMainTrace |> ScopedTrace.finish
+        // scopedMainTrace is automatically finished and cleared at end of scope
     }
     |> Async.RunSynchronously
 
@@ -254,25 +331,51 @@ let example () =
 ```
 
 ## Tracing log messages
-> It requires `Alma.Logging` library
+> Requires `Alma.Logging` library
 
-There is a `TracingLogger` which writes log messages into current active trace as baggage.
+There is a `TracingLogger` which writes log messages as events on the current active trace span.
 
-You can directly pass `TracingProvider` into a logger factory.
 ```fs
-
 open Alma.Tracing
 open Alma.Tracing.LoggerProvider
 open Alma.Logging
 
 LoggerFactory.create [
     UseProvider (TracingProvider.create())
-
     // ... other options
 ]
 ```
 
-**Note**: TracingLogger will add log messages only for a current log level. If you need to add all log messages into tracing, there must be set a log level `Tracing`.
+**Note**: TracingLogger will add log messages only for a current log level. If you need to add all log messages into tracing, set log level to `Tracing`.
+
+## Sampling
+
+The library uses **parent-based sampling** by default:
+
+| Scenario | Behavior |
+|---|---|
+| Incoming request has sampled `traceparent` | Trace is sampled (inherits parent decision) |
+| Incoming request has unsampled `traceparent` | Trace is NOT sampled (inherits parent decision) |
+| No incoming trace (new root trace) | Root sampler decides (configurable via env var) |
+
+### Root sampler options
+
+| Value | Description |
+|---|---|
+| `always_on` (default) | Sample all root traces |
+| `always_off` | Don't sample any root traces |
+| `traceidratio` | Sample a percentage of root traces (set ratio via `OTEL_TRACES_SAMPLER_ARG` / `TRACING_SAMPLER_ARG`) |
+
+### Example: sample 10% of root traces
+```bash
+export OTEL_TRACES_SAMPLER=traceidratio
+export OTEL_TRACES_SAMPLER_ARG=0.1
+```
+
+### Istio integration
+
+When Istio is configured with tracing, it creates the root trace and sets the sampling decision.
+Your application inherits this decision via the `traceparent` header — no additional configuration needed in the application.
 
 ## Release
 1. Increment version in `Tracing.fsproj`

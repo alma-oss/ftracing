@@ -17,14 +17,16 @@ let checkTracePropagation =
             let headers = Http.inject span []
 
             Expect.isNonEmpty headers "Injected headers should not be empty"
-            Expect.hasLength headers 4 (sprintf "There should be 3 injected headers, but there are %s" (headers |> List.map (fun (h, v) -> $"{h} ({v})") |> String.concat ", "))
-
-            headers
-            |> List.iter (fun (key, _) -> Expect.stringStarts key "X-B3-" "Injected header should start with X-B3-")
 
             let map = headers |> Map.ofList
-            Expect.equal (span |> Trace.traceId) (map |> Map.tryFind "X-B3-TraceId") "Headers should have traceId header."
-            Expect.equal (span |> Trace.spanId) (map |> Map.tryFind "X-B3-SpanId") "Headers should have spanId header."
+
+            // W3C traceparent must be present
+            Expect.isTrue (map |> Map.containsKey "traceparent") "Headers should have W3C traceparent header."
+
+            // traceparent should contain the trace and span IDs
+            let traceparent = map |> Map.find "traceparent"
+            Expect.stringContains traceparent (span |> Trace.traceId |> Option.defaultValue "") "traceparent should contain trace ID"
+            Expect.stringContains traceparent (span |> Trace.spanId |> Option.defaultValue "") "traceparent should contain span ID"
 
         testCase "should inject child trace to headers" <| fun _ ->
             let span = "main" |> Trace.Span.start
@@ -33,15 +35,15 @@ let checkTracePropagation =
             let headers = Http.inject child []
 
             Expect.isNonEmpty headers "Injected headers should not be empty"
-            Expect.hasLength headers 4 "There should be 4 injected headers"
-
-            headers
-            |> List.iter (fun (key, _) -> Expect.stringStarts key "X-B3-" "Injected header should start with X-B3-")
 
             let map = headers |> Map.ofList
-            Expect.equal (child |> Trace.traceId) (map |> Map.tryFind "X-B3-TraceId") "Headers should have traceId header."
-            Expect.equal (child |> Trace.spanId) (map |> Map.tryFind "X-B3-SpanId") "Headers should have spanId header."
-            Expect.equal (child |> Trace.parentId) (map |> Map.tryFind "X-B3-ParentSpanId") "Headers should have parentSpanId header."
+
+            // W3C traceparent must be present
+            Expect.isTrue (map |> Map.containsKey "traceparent") "Headers should have W3C traceparent header."
+
+            let traceparent = map |> Map.find "traceparent"
+            Expect.stringContains traceparent (child |> Trace.traceId |> Option.defaultValue "") "traceparent should contain trace ID"
+            Expect.stringContains traceparent (child |> Trace.spanId |> Option.defaultValue "") "traceparent should contain span ID"
 
         testCase "should inject trace to headers with old trace information" <| fun _ ->
             let old = "old" |> Trace.Span.start
@@ -53,15 +55,15 @@ let checkTracePropagation =
             let headers = Http.inject child headers
 
             Expect.isNonEmpty headers "Injected headers should not be empty"
-            Expect.hasLength headers 4 "There should be 4 injected headers"
-
-            headers
-            |> List.iter (fun (key, _) -> Expect.stringStarts key "X-B3-" "Injected header should start with X-B3-")
 
             let map = headers |> Map.ofList
-            Expect.equal (child |> Trace.traceId) (map |> Map.tryFind "X-B3-TraceId") "Headers should have traceId header."
-            Expect.equal (child |> Trace.spanId) (map |> Map.tryFind "X-B3-SpanId") "Headers should have spanId header."
-            Expect.equal (child |> Trace.parentId) (map |> Map.tryFind "X-B3-ParentSpanId") "Headers should have parentSpanId header."
+
+            // W3C traceparent should be from the child (overwrites old)
+            Expect.isTrue (map |> Map.containsKey "traceparent") "Headers should have W3C traceparent header."
+
+            let traceparent = map |> Map.find "traceparent"
+            Expect.stringContains traceparent (child |> Trace.traceId |> Option.defaultValue "") "traceparent should contain child trace ID"
+            Expect.stringContains traceparent (child |> Trace.spanId |> Option.defaultValue "") "traceparent should contain child span ID"
 
         testCase "should inject inactive trace and extract it from headers" <| fun _ ->
             let span = Inactive
@@ -150,12 +152,9 @@ let checkTracePropagation =
 
             Expect.equal (childOfExtracted |> Trace.parentId) (child |> Trace.spanId) (sprintf "Parent of extracted trace (%s) should original child span (%s)" (string childOfExtracted) (string child))
 
-        testCase "should extract trace from headers" <| fun _ ->
+        testCase "should extract trace from W3C traceparent header" <| fun _ ->
             let headers = [
-                "X-B3-TraceId", "7fd53ebb12e81ce2b66bec6bfc47b29b"
-                "X-B3-SpanId", "71a6d5979a7a70a7"
-                "X-B3-Sampled", "1"
-                "X-B3-ParentSpanId", "cd8baa01e6cf0597"
+                "traceparent", "00-7fd53ebb12e81ce2b66bec6bfc47b29b-71a6d5979a7a70a7-01"
             ]
 
             let extracted = Http.extractFromHeaders headers
@@ -163,7 +162,7 @@ let checkTracePropagation =
             Expect.equal
                 (extracted |> Option.map TraceContext.id)
                 (Some "7fd53ebb12e81ce2b66bec6bfc47b29b.71a6d5979a7a70a7")
-                (sprintf "extract headers (%s)" (string extracted))
+                (sprintf "extract W3C traceparent (%s)" (string extracted))
 
             let childOfExtracted =
                 "continue"
@@ -172,14 +171,12 @@ let checkTracePropagation =
             Expect.equal
                 (childOfExtracted |> Trace.parentId)
                 (Some "71a6d5979a7a70a7")
-                (sprintf "Parent of extracted trace (%s) should original span" (string childOfExtracted))
+                (sprintf "Parent of extracted trace (%s) should be original span" (string childOfExtracted))
 
-        testCase "should extract trace from headers (lowercase)" <| fun _ ->
+        testCase "should extract trace from W3C traceparent with tracestate" <| fun _ ->
             let headers = [
-                "x-b3-traceid", "7fd53ebb12e81ce2b66bec6bfc47b29b"
-                "x-b3-spanid", "71a6d5979a7a70a7"
-                "x-b3-sampled", "1"
-                "x-b3-parentspanid", "cd8baa01e6cf0597"
+                "traceparent", "00-7fd53ebb12e81ce2b66bec6bfc47b29b-71a6d5979a7a70a7-01"
+                "tracestate", "congo=t61rcWkgMzE"
             ]
 
             let extracted = Http.extractFromHeaders headers
@@ -187,14 +184,5 @@ let checkTracePropagation =
             Expect.equal
                 (extracted |> Option.map TraceContext.id)
                 (Some "7fd53ebb12e81ce2b66bec6bfc47b29b.71a6d5979a7a70a7")
-                (sprintf "extract headers (%s)" (string extracted))
-
-            let childOfExtracted =
-                "continue"
-                |> Trace.ChildOf.continueOrStartActive (fun () -> extracted |> Trace.ofContextOption)
-
-            Expect.equal
-                (childOfExtracted |> Trace.parentId)
-                (Some "71a6d5979a7a70a7")
-                (sprintf "Parent of extracted trace (%s) should original span" (string childOfExtracted))
+                (sprintf "extract W3C traceparent with tracestate (%s)" (string extracted))
     ]

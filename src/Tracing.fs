@@ -18,16 +18,18 @@ type AlmaTracer =
 
 [<RequireQualifiedAccess>]
 module Tracer =
-    let requiredEnvironmentVariables = [
-        "TRACING_SERVICE_NAME"
-        "TRACING_THRIFT_HOST"
-    ]
+    /// Check either standard OTel env vars or custom TRACING_* vars.
+    /// Standard env vars (OTEL_SERVICE_NAME, OTEL_EXPORTER_OTLP_ENDPOINT) take precedence.
+    let private getServiceName () =
+        getEnvVarWithFallback "OTEL_SERVICE_NAME" "TRACING_SERVICE_NAME"
+
+    let private getOtlpEndpoint () =
+        getEnvVarWithFallback "OTEL_EXPORTER_OTLP_ENDPOINT" "TRACING_OTLP_ENDPOINT"
 
     [<RequireQualifiedAccess>]
     module Check =
         let environment () =
-            requiredEnvironmentVariables
-            |> List.map getEnvVarValue
+            [ getServiceName(); getOtlpEndpoint() ]
             |> Validation.ofResults
             |> Result.map ignore
 
@@ -52,7 +54,7 @@ module Tracer =
         use loggerFactory = loggerFactory()
         let logger = loggerFactory.CreateLogger "OpenTelemetry.Tracer"
 
-        let! serviceName = getEnvVarValue "TRACING_SERVICE_NAME"
+        let! serviceName = getServiceName()
 
         let! tracerProvider =
             match globalTracerProvider with
@@ -63,7 +65,7 @@ module Tracer =
             | _ ->
                 result {
                     logger.LogDebug("Init tracer provider")
-                    let! host = getEnvVarValue "TRACING_THRIFT_HOST"
+                    let! endpoint = getOtlpEndpoint()
 
                     let attributes =
                         match getEnvVarValue "TRACING_TAGS" with
@@ -78,7 +80,32 @@ module Tracer =
                             |> Seq.map (fun (k, v) -> KeyValuePair (k, v :> obj))
                         | _ -> Seq.empty
 
-                    let sampler = AlwaysOnSampler()
+                    // Parent-based sampler: respects the upstream sampling decision (e.g. from Istio).
+                    // If no parent exists, the root sampler decides — configurable via TRACING_SAMPLER / OTEL_TRACES_SAMPLER:
+                    //   "always_on"  (default) — sample everything
+                    //   "always_off"           — sample nothing
+                    //   "traceidratio"         — sample a ratio (set ratio via TRACING_SAMPLER_ARG / OTEL_TRACES_SAMPLER_ARG, default 1.0)
+                    let rootSampler =
+                        let samplerName =
+                            getEnvVarWithFallback "OTEL_TRACES_SAMPLER" "TRACING_SAMPLER"
+                            |> Result.map (fun s -> s.ToLowerInvariant())
+                            |> Result.defaultValue "always_on"
+
+                        match samplerName with
+                        | "always_off" -> AlwaysOffSampler() :> Sampler
+                        | "traceidratio" ->
+                            let ratio =
+                                getEnvVarWithFallback "OTEL_TRACES_SAMPLER_ARG" "TRACING_SAMPLER_ARG"
+                                |> Result.bind (fun s ->
+                                    match tryParseFloat s with
+                                    | Some v -> Ok v
+                                    | None -> Error $"Invalid sampler ratio: {s}"
+                                )
+                                |> Result.defaultValue 1.0
+                            TraceIdRatioBasedSampler(ratio) :> Sampler
+                        | _ -> AlwaysOnSampler() :> Sampler
+
+                    let sampler = ParentBasedSampler(rootSampler)
 
                     let provider =
                         Sdk.CreateTracerProviderBuilder()
@@ -90,24 +117,13 @@ module Tracer =
                                     .AddTelemetrySdk()
                             )
                             .AddHttpClientInstrumentation()
-                            .AddJaegerExporter(fun opt ->
-                                let logger = loggerFactory.CreateLogger("Jaeger")
+                            .AddOtlpExporter(fun opt ->
+                                let logger = loggerFactory.CreateLogger("OTLP")
 
-                                let logConf scope (conf: Exporter.JaegerExporterOptions) =
-                                    logger.LogDebug("Settings<{scope}> ... Endpoint: {opt}", scope, conf.Endpoint)
-                                    logger.LogDebug("Settings<{scope}> ... ExportProcessorType: {opt}", scope, conf.ExportProcessorType)
-                                    logger.LogDebug("Settings<{scope}> ... MaxPayloadSizeInBytes: {opt}", scope, conf.MaxPayloadSizeInBytes)
-                                    logger.LogDebug("Settings<{scope}> ... AgentHost: {opt}", scope, conf.AgentHost)
-                                    logger.LogDebug("Settings<{scope}> ... AgentPort: {opt}", scope, conf.AgentPort)
-                                    logger.LogDebug("Settings<{scope}> ... Protocol: {opt}", scope, conf.Protocol)
-                                    logger.LogDebug("Settings<{scope}> ... HttpClientFactory: {opt}", scope, conf.HttpClientFactory.Invoke())
+                                opt.Endpoint <- Uri(endpoint)
 
-                                opt |> logConf "default"
-
-                                opt.Endpoint <- Uri($"http://{host}/api/traces")
-                                opt.Protocol <- Exporter.JaegerExportProtocol.HttpBinaryThrift
-
-                                opt |> logConf "app"
+                                logger.LogDebug("Settings ... Endpoint: {endpoint}", opt.Endpoint)
+                                logger.LogDebug("Settings ... Protocol: {protocol}", opt.Protocol)
                             )
                             .SetSampler(sampler)
 

@@ -8,9 +8,10 @@ nuget Microsoft.Extensions.Logging ~> 10.0
 nuget OpenTelemetry ~> 1.7
 nuget OpenTelemetry.Api ~> 1.7
 nuget OpenTelemetry.Exporter.Console ~> 1.7
-nuget OpenTelemetry.Exporter.Jaeger ~> 1.2 # deprecated
+nuget OpenTelemetry.Exporter.OpenTelemetryProtocol ~> 1.7
+nuget OpenTelemetry.Extensions.Hosting ~> 1.7
+nuget OpenTelemetry.Instrumentation.AspNetCore ~> 1.7
 nuget OpenTelemetry.Instrumentation.Http ~> 1.7
-nuget OpenTelemetry.Extensions.Propagators ~> 1.7
 
 nuget Feather.ErrorHandling ~> 2.0
 nuget Alma.Logging ~> 12.0
