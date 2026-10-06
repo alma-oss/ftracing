@@ -1,0 +1,113 @@
+lockfile_version: '1'
+dependencies: []
+deployments:
+- kind: project-relative
+  target: claude
+  value: .claude/skills/ftracing
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/ftracing/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:443a5e64d693399b0c92a85c082413d5e3f5fed284b873db448d0f5f5644be78
+- kind: project-relative
+  target: claude
+  value: .claude/skills/ftracing/references/anti-patterns.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:e6dbcfa73b9825931c00badaef7a64120e732c23fd293a9d40ec3e1ebcbbb03e
+- kind: project-relative
+  target: claude
+  value: .claude/skills/ftracing/references/examples.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:0b12ae1c1caded761b310e9f90795f968c20fc22e39ac2aa6b558f4b1476b12c
+- kind: project-relative
+  target: claude
+  value: .claude/skills/ftracing/references/preferred-patterns.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:5c1743658d5849245d6b35a578ee56c74e00a3113f788ff0be826f8b0aa73d32
+- kind: project-relative
+  target: legacy
+  value: .agents/skills/ftracing
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: null
+- kind: project-relative
+  target: legacy
+  value: .agents/skills/ftracing/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:443a5e64d693399b0c92a85c082413d5e3f5fed284b873db448d0f5f5644be78
+- kind: project-relative
+  target: legacy
+  value: .agents/skills/ftracing/references/anti-patterns.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:e6dbcfa73b9825931c00badaef7a64120e732c23fd293a9d40ec3e1ebcbbb03e
+- kind: project-relative
+  target: legacy
+  value: .agents/skills/ftracing/references/examples.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:0b12ae1c1caded761b310e9f90795f968c20fc22e39ac2aa6b558f4b1476b12c
+- kind: project-relative
+  target: legacy
+  value: .agents/skills/ftracing/references/preferred-patterns.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:5c1743658d5849245d6b35a578ee56c74e00a3113f788ff0be826f8b0aa73d32
+local_deployed_files:
+- .agents/skills/ftracing
+- .agents/skills/ftracing/SKILL.md
+- .agents/skills/ftracing/references/anti-patterns.md
+- .agents/skills/ftracing/references/examples.md
+- .agents/skills/ftracing/references/preferred-patterns.md
+- .claude/skills/ftracing
+- .claude/skills/ftracing/SKILL.md
+- .claude/skills/ftracing/references/anti-patterns.md
+- .claude/skills/ftracing/references/examples.md
+- .claude/skills/ftracing/references/preferred-patterns.md
+local_deployed_file_hashes:
+  .agents/skills/ftracing/SKILL.md: sha256:443a5e64d693399b0c92a85c082413d5e3f5fed284b873db448d0f5f5644be78
+  .agents/skills/ftracing/references/anti-patterns.md: sha256:e6dbcfa73b9825931c00badaef7a64120e732c23fd293a9d40ec3e1ebcbbb03e
+  .agents/skills/ftracing/references/examples.md: sha256:0b12ae1c1caded761b310e9f90795f968c20fc22e39ac2aa6b558f4b1476b12c
+  .agents/skills/ftracing/references/preferred-patterns.md: sha256:5c1743658d5849245d6b35a578ee56c74e00a3113f788ff0be826f8b0aa73d32
+  .claude/skills/ftracing/SKILL.md: sha256:443a5e64d693399b0c92a85c082413d5e3f5fed284b873db448d0f5f5644be78
+  .claude/skills/ftracing/references/anti-patterns.md: sha256:e6dbcfa73b9825931c00badaef7a64120e732c23fd293a9d40ec3e1ebcbbb03e
+  .claude/skills/ftracing/references/examples.md: sha256:0b12ae1c1caded761b310e9f90795f968c20fc22e39ac2aa6b558f4b1476b12c
+  .claude/skills/ftracing/references/preferred-patterns.md: sha256:5c1743658d5849245d6b35a578ee56c74e00a3113f788ff0be826f8b0aa73d32

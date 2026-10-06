@@ -1,5 +1,7 @@
 # AGENTS.md — Alma.Tracing
 
+This repo ships Agent Skill for the `Alma.Tracing` library. Compatible agents discover it automatically; see `.agents/skills/ftracing/SKILL.md`.
+
 ## Project Purpose
 
 `Alma.Tracing` is an F# NuGet library for distributed tracing in web applications. Built on OpenTelemetry, it provides a high-level F# API for creating and managing trace spans (active, child, custom-scoped), HTTP context propagation (B3 format), and a tracing-aware logger provider. It exports traces to Jaeger via Thrift and optionally to the console.
