@@ -16,7 +16,7 @@ module private Headers =
     type Headers = Dictionary<string, string>
     type IHeaders = IDictionary<string, string>
 
-    type HeaderSeq = (string * string) seq
+    type HeaderSeq = seq<string * string>
 
     let headersToDictionary (headerList: HeaderSeq): IHeaders =
         headerList
